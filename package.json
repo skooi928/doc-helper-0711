@@ -25,7 +25,8 @@
       "doc-helper-0711": [
         {
           "id": "doc-helper-init",
-          "name": "Initialization"
+          "name": "Initialization",
+          "icon": "resources/icon.svg"
         }
       ]
     },
@@ -33,7 +34,7 @@
       {
         "view": "doc-helper-init",
         "contents": "In order to use DocHelper, you can open a folder containing a .doch repository. (A .doch folder will be automatically generated if no prior folder was found.)\n[Open Folder](command:vscode.openFolder)\nTo learn more about how to use DocHelper and version control in VS Code [read our docs](https://aka.ms/vscode-scm).",
-        "when": "workspaceFolderCount != 0 && !workspaceContains:.doch"
+        "when": "workspaceFolderCount == 0 && !workspaceContains:.doch"
       }
     ],
     "commands": [
@@ -41,9 +42,10 @@
     ]
   },
   "scripts": {
+    "start-backend": "cd backend && cd dochelper-backend && ./mvnw spring-boot:run",
     "vscode:prepublish": "npm run package",
     "compile": "npm run check-types && npm run lint && node esbuild.js",
-    "watch": "npm-run-all -p watch:*",
+    "watch": "npm-run-all -p start-backend watch:*",
     "watch:esbuild": "node esbuild.js --watch",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
     "package": "npm run check-types && npm run lint && node esbuild.js --production",
