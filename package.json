@@ -26,7 +26,14 @@
         {
           "id": "doc-helper-init",
           "name": "Initialization",
-          "icon": "resources/icon.svg"
+          "icon": "resources/icon.svg",
+          "when": "!docHelper:dochInitialized"
+        },
+        {
+          "id": "doc-helper-main",
+          "name": "Doc Helper",
+          "icon": "resources/icon.svg",
+          "when": "docHelper:dochInitialized"
         }
       ]
     },
@@ -34,11 +41,24 @@
       {
         "view": "doc-helper-init",
         "contents": "In order to use DocHelper, you can open a folder containing a .doch repository. (A .doch folder will be automatically generated if no prior folder was found.)\n[Open Folder](command:vscode.openFolder)\nTo learn more about how to use DocHelper and version control in VS Code [read our docs](https://aka.ms/vscode-scm).",
-        "when": "workspaceFolderCount == 0 && !workspaceContains:.doch"
+        "when": "workspaceFolderCount == 0"
+      },
+      {
+        "view": "doc-helper-init",
+        "contents": "This current folder has no .doch repository. To create a documentation tracking, click on the button below.\n[Init .doch Repository](command:doc-helper-0711.initDochRepo)",
+        "when": "workspaceFolderCount != 0 && !docHelper:dochInitialized"
+      },
+      {
+        "view": "doc-helper-main",
+        "contents": ".doch is initialized!_\n\n*Your main UI goes here…*",
+        "when": "docHelper:dochInitialized"
       }
     ],
     "commands": [
-
+      {
+        "command": "doc-helper-0711.initDochRepo",
+        "title": "Initialize DocHelper Repository"
+      }
     ]
   },
   "scripts": {
