@@ -12,11 +12,32 @@
   "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
-    "commands": [
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "doc-helper-0711",
+          "title": "Doc Helper",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "doc-helper-0711": [
+        {
+          "id": "doc-helper-init",
+          "name": "Initialization"
+        }
+      ]
+    },
+    "viewsWelcome": [
       {
-        "command": "doc-helper-0711.helloWorld",
-        "title": "Hello World"
+        "view": "doc-helper-init",
+        "contents": "In order to use DocHelper, you can open a folder containing a .doch repository. (A .doch folder will be automatically generated if no prior folder was found.)\n[Open Folder](command:vscode.openFolder)\nTo learn more about how to use DocHelper and version control in VS Code [read our docs](https://aka.ms/vscode-scm).",
+        "when": "workspaceFolderCount != 0 && !workspaceContains:.doch"
       }
+    ],
+    "commands": [
+
     ]
   },
   "scripts": {
