@@ -73,6 +73,8 @@ if [ -n "$CHANGED_MD" ]; then
 fi
 `;
 
+
+// ABOUT DOCH REPO
 export async function initDochRepo(folder: vscode.WorkspaceFolder) {
   const base = vscode.Uri.joinPath(folder.uri, '.doch');
 
@@ -108,16 +110,6 @@ export async function initDochRepo(folder: vscode.WorkspaceFolder) {
     );
   }
 
-  // // 3) Generate dynamic mappings
-  // const dynamic = await generateDynamicMappings(folder);
-  // await vscode.workspace.fs.writeFile(
-  //   vscode.Uri.joinPath(base, 'mappings.json'),
-  //   Buffer.from(
-  //     JSON.stringify({ 'module-to-doc': dynamic }, null, 2),
-  //     'utf8'
-  //   )
-  // );
-
   vscode.window.showInformationMessage(`Initialized .doch in "${folder.name}"`);
 }
 
@@ -137,87 +129,14 @@ export async function updateDochContext() {
   await vscode.commands.executeCommand('setContext', 'docHelper:dochInitialized', initialized);
 }
 
-// // Load existing state or return empty
-// async function loadDocState(folder: vscode.WorkspaceFolder): Promise<DocState> {
-//   const metadataDir = vscode.Uri.joinPath(folder.uri, '.doch', 'metadata');
-//   const stateFile = vscode.Uri.joinPath(metadataDir, 'doc-state.json');
-//   try {
-//     const raw = await vscode.workspace.fs.readFile(stateFile);
-//     return JSON.parse(raw.toString()) as DocState;
-//   } catch {
-//     // Create metadata dir if missing
-//     await vscode.workspace.fs.createDirectory(metadataDir);
-
-//     const initialState: DocState = {};
-//     const data = Buffer.from(JSON.stringify(initialState, null, 2), 'utf8');
-//     await vscode.workspace.fs.writeFile(stateFile, data);
-
-//     return initialState;
-//   }
-// }
-
-// // Persist state back to disk
-// async function saveDocState(folder: vscode.WorkspaceFolder, state: DocState) {
-//   const uri = vscode.Uri.joinPath(folder.uri, '.doch', 'metadata', 'doc-state.json');
-//   const data = Buffer.from(JSON.stringify(state, null, 2), 'utf8');
-//   await vscode.workspace.fs.writeFile(uri, data);
-// }
-
-// export async function drift(files: string[]) {
-//   const folders = vscode.workspace.workspaceFolders || [];
-//   for (const folder of folders) {
-//     const state = await loadDocState(folder);
-
-//     for (const rel of files) {
-//       // map e.g. "src/foo/bar.ts" -> "docs/foo/bar.md"
-//       const docRel = rel
-//         .replace(/^src[\/\\]/, 'docs' + path.sep)
-//         .replace(/\.(ts|js|tsx)$/, '.md');
-//       const docUri = vscode.Uri.joinPath(folder.uri, ...docRel.split(path.sep));
-
-//       let documented = true;
-//       try {
-//         await vscode.workspace.fs.stat(docUri);
-//       } catch {
-//         documented = false;
-//       }
-
-//       state[rel] = {
-//         documented,
-//         timestamp: new Date().toISOString()
-//       };
-//     }
-
-//     await saveDocState(folder, state);
-//   }
-// }
-
-// export async function check(files: string[]) {
-//   const folders = vscode.workspace.workspaceFolders || [];
-//   for (const folder of folders) {
-//     const state = await loadDocState(folder);
-
-//     for (const docRel of files) {
-//       // map e.g. "docs/foo/bar.md" -> "src/foo/bar.ts"
-//       const sourceRel = docRel
-//         .replace(/^docs[\/\\]/, 'src' + path.sep)
-//         .replace(/\.md$/, '.ts');
-//       const srcUri = vscode.Uri.joinPath(folder.uri, ...sourceRel.split(path.sep));
-
-//       let documented = true;
-//       try {
-//         // if source file is gone, mark undocumented
-//         await vscode.workspace.fs.stat(srcUri);
-//       } catch {
-//         documented = false;
-//       }
-
-//       state[sourceRel] = {
-//         documented,
-//         timestamp: new Date().toISOString()
-//       };
-//     }
-
-//     await saveDocState(folder, state);
-//   }
-// }
+// ABOUT FILE LEVEL
+// detect changes to doc-state.json to dynamically update status bar
+export function watchDocState(onChange: () => void): vscode.Disposable {
+  const watcher = vscode.workspace.createFileSystemWatcher(
+      '**/.doch/metadata/doc-state.json'
+  );
+  watcher.onDidCreate(onChange);
+  watcher.onDidChange(onChange);
+  watcher.onDidDelete(onChange);
+  return watcher;
+}
