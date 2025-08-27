@@ -61,6 +61,9 @@
       }
     ]
   },
+  "bin": { 
+    "doch": "./dist/cli.js" 
+  },
   "scripts": {
     "start-backend": "cd backend && cd dochelper-backend && ./mvnw spring-boot:run",
     "vscode:prepublish": "npm run package",
