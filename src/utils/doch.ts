@@ -55,25 +55,21 @@ diff:
 `;
 
 // Check doc drifting
-const HOOK_POST_MERGE = `#!/usr/bin/env sh
-# .doch/hooks/post-merge
-echo "DocHelper: Checking for documentation drift after merge..."
+const HOOK_POST_COMMIT = `#!/usr/bin/env sh
+echo "DocHelper: Updating doc status…"
+CHANGED_SRC=$(git diff-tree --no-commit-id --name-only -r HEAD | grep -E '\\.(ts|js|tsx)$')
+if [ -n "$CHANGED_SRC" ]; then
+  echo "$CHANGED_SRC" | xargs npx doch drift
+fi 
+`;
 
-# Get all files changed in the merge
-CHANGED_FILES=$(git diff HEAD@{1} --name-only | grep -E '\\.(ts|js|tsx)$')
-
-if [ -n "$CHANGED_FILES" ]; then
-  # Check for doc drift based on merged changes
-  echo "$CHANGED_FILES" | xargs doch drift
-
-  # Generate doc update suggestions based on merge
-  echo "$CHANGED_FILES" | xargs doch suggest --save
-  
-  # Notify about dependent components affected
-  doch dependencies --affected
-
-  # Summary notification
-  echo "📝 Run 'doch review' to see documentation that needs updating"
+// Block pushing to github if there are undocumented or stale .md files
+const HOOK_PRE_PUSH = `#!/usr/bin/env sh
+echo "DocHelper: Blocking push if docs are stale…"
+CHANGED_MD=$(git diff --name-only origin/main...HEAD | grep -E '\\.md$')
+if [ -n "$CHANGED_MD" ]; then
+  echo "$CHANGED_MD" | xargs npx doch check --exit-on-failure
+  [ $? -ne 0 ] && { echo "🚫 Push blocked: Documentation is stale."; exit 1; }
 fi
 `;
 
@@ -102,7 +98,8 @@ export async function initDochRepo(folder: vscode.WorkspaceFolder) {
   // 2) Files to seed
   for (const [rel, content] of [
     ['config.yml', TEMPLATE_CONFIG],
-    ['hooks/post-merge', HOOK_POST_MERGE]
+    ['hooks/post-commit', HOOK_POST_COMMIT],
+    ['hooks/pre-push', HOOK_PRE_PUSH]
   ] as [string,string][]) {
     // create the file
     await vscode.workspace.fs.writeFile(
@@ -139,3 +136,88 @@ export async function updateDochContext() {
   // tell VS Code to re-evaluate when-clauses
   await vscode.commands.executeCommand('setContext', 'docHelper:dochInitialized', initialized);
 }
+
+// // Load existing state or return empty
+// async function loadDocState(folder: vscode.WorkspaceFolder): Promise<DocState> {
+//   const metadataDir = vscode.Uri.joinPath(folder.uri, '.doch', 'metadata');
+//   const stateFile = vscode.Uri.joinPath(metadataDir, 'doc-state.json');
+//   try {
+//     const raw = await vscode.workspace.fs.readFile(stateFile);
+//     return JSON.parse(raw.toString()) as DocState;
+//   } catch {
+//     // Create metadata dir if missing
+//     await vscode.workspace.fs.createDirectory(metadataDir);
+
+//     const initialState: DocState = {};
+//     const data = Buffer.from(JSON.stringify(initialState, null, 2), 'utf8');
+//     await vscode.workspace.fs.writeFile(stateFile, data);
+
+//     return initialState;
+//   }
+// }
+
+// // Persist state back to disk
+// async function saveDocState(folder: vscode.WorkspaceFolder, state: DocState) {
+//   const uri = vscode.Uri.joinPath(folder.uri, '.doch', 'metadata', 'doc-state.json');
+//   const data = Buffer.from(JSON.stringify(state, null, 2), 'utf8');
+//   await vscode.workspace.fs.writeFile(uri, data);
+// }
+
+// export async function drift(files: string[]) {
+//   const folders = vscode.workspace.workspaceFolders || [];
+//   for (const folder of folders) {
+//     const state = await loadDocState(folder);
+
+//     for (const rel of files) {
+//       // map e.g. "src/foo/bar.ts" -> "docs/foo/bar.md"
+//       const docRel = rel
+//         .replace(/^src[\/\\]/, 'docs' + path.sep)
+//         .replace(/\.(ts|js|tsx)$/, '.md');
+//       const docUri = vscode.Uri.joinPath(folder.uri, ...docRel.split(path.sep));
+
+//       let documented = true;
+//       try {
+//         await vscode.workspace.fs.stat(docUri);
+//       } catch {
+//         documented = false;
+//       }
+
+//       state[rel] = {
+//         documented,
+//         timestamp: new Date().toISOString()
+//       };
+//     }
+
+//     await saveDocState(folder, state);
+//   }
+// }
+
+// export async function check(files: string[]) {
+//   const folders = vscode.workspace.workspaceFolders || [];
+//   for (const folder of folders) {
+//     const state = await loadDocState(folder);
+
+//     for (const docRel of files) {
+//       // map e.g. "docs/foo/bar.md" -> "src/foo/bar.ts"
+//       const sourceRel = docRel
+//         .replace(/^docs[\/\\]/, 'src' + path.sep)
+//         .replace(/\.md$/, '.ts');
+//       const srcUri = vscode.Uri.joinPath(folder.uri, ...sourceRel.split(path.sep));
+
+//       let documented = true;
+//       try {
+//         // if source file is gone, mark undocumented
+//         await vscode.workspace.fs.stat(srcUri);
+//       } catch {
+//         documented = false;
+//       }
+
+//       state[sourceRel] = {
+//         documented,
+//         timestamp: new Date().toISOString()
+//       };
+//     }
+
+//     await saveDocState(folder, state);
+//   }
+// }
