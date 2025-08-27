@@ -72,22 +72,49 @@ export function activate(context: vscode.ExtensionContext) {
     const folder = folders[0];
     const state = await loadState();
     let text: string | undefined;
+    let bg: vscode.ThemeColor | undefined;
 
     if (/\.(ts|js|tsx)$/.test(rel)) {
-      // code file → check doc exists?
+      // code file, check doc exists?
       const docRel = rel
         .replace(/^src[\/\\]/, 'docs/')
         .replace(/\.(ts|js|tsx)$/, '.md');
+      const docUri = vscode.Uri.joinPath(folder.uri, ...docRel.split(/[\\/]/));
+      let docExists = false;
+      let docMtime = 0; // modification time
+      try {
+        const stat = await vscode.workspace.fs.stat(docUri);
+        docExists = true;
+        docMtime = stat.mtime;
+      } catch {
+        // not found
+      }
+
+      const codeUri = vscode.Uri.joinPath(folder.uri, ...rel.split(/[\\/]/));
+      const codeStat = await vscode.workspace.fs.stat(codeUri);
+      const codeMtime = codeStat.mtime;
+
       const entry = state[rel];
-      if (entry) {
-        text = entry.documented
-          ? '$(check) Documented'
-          : '$(alert) Undocumented';
-      } else {
-        text = '$(alert) Staled';
+      const commitTime = entry ? Date.parse(entry.timestamp) : undefined;
+
+      if (!docExists) {
+        text = '$(alert) Undocumented';
+        bg = new vscode.ThemeColor('statusBarItem.errorBackground');
+      }
+      else if (entry && commitTime !== undefined && commitTime < codeMtime) {
+        text = '$(alert) Stale';
+        bg = new vscode.ThemeColor('statusBarItem.warningBackground');
+      }
+      else if (entry && entry.documented) {
+        text = '$(check) Documented';
+        bg = undefined;
+      }
+      else {
+        text = '$(circle-outline) Docs Uncommitted';
+        bg = new vscode.ThemeColor('statusBarItem.errorBackground');
       }
     } else if (/\.md$/.test(rel)) {
-      // markdown → try all source extensions
+      // markdown file, try all source extensions
       const base = rel
         .replace(/^docs[\/\\]/, 'src/')
         .replace(/\.md$/, '');
@@ -107,31 +134,36 @@ export function activate(context: vscode.ExtensionContext) {
         }
       }
 
-      if (foundExt) {
-        // there is a matching source file
-        const entry = state[`${base}.${foundExt}`];
-        text = entry?.documented
-          ? '$(check) Sync'
-          : '$(alert) Not Sync';
-      } else {
+      if (!foundExt) {
         // no matching source at all
         text = '$(alert) No matched source';
+        bg  = new vscode.ThemeColor('statusBarItem.warningBackground');
+      } else {
+        const srcRel = `${base}.${foundExt}`;
+        const codeUri = vscode.Uri.joinPath(folder.uri, ...srcRel.split(/[\\/]/));
+        const codeMtime = (await vscode.workspace.fs.stat(codeUri)).mtime;
+        const entry = state[srcRel];
+        const commitTime = entry ? Date.parse(entry.timestamp) : undefined;
+
+        if (entry && commitTime !== undefined && commitTime < codeMtime) {
+          text = '$(alert) Stale';
+          bg = new vscode.ThemeColor('statusBarItem.warningBackground');
+        }
+        else if (entry && entry.documented) {
+          text = '$(check) Sync';
+          bg = undefined;
+        }
+        else {
+          text = '$(circle-outline) Uncommitted Docs';
+          bg = new vscode.ThemeColor('statusBarItem.errorBackground');
+        }
       }
     }
 
     if (text) {
       statusBarItem.text = text;
       statusBarItem.tooltip = `Documentation status for ${rel}`;
-
-      // set background color based on status
-      if (text.includes('Staled') || text.includes('No matched source')) {
-        statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
-      } else if (text.includes('Undocumented') || text.includes('Not Sync')) {
-        statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
-      } else {
-        statusBarItem.backgroundColor = undefined;
-      }
-
+      statusBarItem.backgroundColor = bg;
       statusBarItem.show();
     } else {
       statusBarItem.hide();
