@@ -34,9 +34,9 @@ export function activate(context: vscode.ExtensionContext) {
   );
   context.subscriptions.push(initCmd);
 
+  // Webview after the doch repo is initialized
 	const versionControlViewProvider = new VersionControlViewProvider(context.extensionUri);
 	const chatbotViewProvider = new ChatbotViewProvider(context.extensionUri); // Instantiated ChatbotViewProvider
-
 	const generateDocsViewProvider = new GenerateDocsViewProvider(context.extensionUri);
 
 	context.subscriptions.push(
@@ -48,6 +48,7 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.window.registerWebviewViewProvider(GenerateDocsViewProvider.viewType, generateDocsViewProvider)
 	);
+
   // Show status of the opened file
   // create status bar item
   const statusBarItem = vscode.window.createStatusBarItem(
