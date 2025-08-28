@@ -36,8 +36,23 @@
           "when": "!docHelper:dochInitialized"
         },
         {
-          "id": "doc-helper-main",
-          "name": "Doc Helper",
+          "id": "doc-helper-generate-docs",
+          "name": "Generate Docs",
+          "type": "webview",
+          "icon": "resources/icon.svg",
+          "when": "docHelper:dochInitialized"
+        },
+        {
+          "id": "doc-helper-chatbot",
+          "name": "AI Chatbot",
+          "type": "webview",
+          "icon": "resources/icon.svg",
+          "when": "docHelper:dochInitialized"
+        },
+        {
+          "id": "doc-helper-version-control",
+          "name": "Version Control",
+          "type": "webview",
           "icon": "resources/icon.svg",
           "when": "docHelper:dochInitialized"
         }
@@ -53,11 +68,6 @@
         "view": "doc-helper-init",
         "contents": "This current folder has no .doch repository. To create a documentation tracking, click on the button below.\n[Init .doch Repository](command:doc-helper-0711.initDochRepo)",
         "when": "workspaceFolderCount != 0 && !docHelper:dochInitialized"
-      },
-      {
-        "view": "doc-helper-main",
-        "contents": ".doch is initialized!_\n\n*Your main UI goes here…*",
-        "when": "docHelper:dochInitialized"
       }
     ],
     "commands": [
