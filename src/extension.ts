@@ -2,6 +2,9 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 import { initDochRepo, updateDochContext } from './utils/doch';
+import { VersionControlViewProvider } from './providers/versionControlViewProvider';
+import { ChatbotViewProvider } from './providers/chatbotViewProvider'; // Added this import
+import { GenerateDocsViewProvider } from './providers/generateDocsViewProvider';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -41,12 +44,30 @@ export function activate(context: vscode.ExtensionContext) {
 			await vscode.commands.executeCommand('vscode.openFolder');
 		}
 		// then initialise .doch in every open folder
-		vscode.workspace.workspaceFolders?.forEach(initDochRepo);
-		await vscode.commands.executeCommand('setContext', 'docHelper:dochInitialized', true);
+		if (vscode.workspace.workspaceFolders) {
+			for (const folder of vscode.workspace.workspaceFolders) {
+				await initDochRepo(folder);
+			}
+		}
+		await updateDochContext();
 		}
 	);
 	context.subscriptions.push(initCmd);
 
+	const versionControlViewProvider = new VersionControlViewProvider(context.extensionUri);
+	const chatbotViewProvider = new ChatbotViewProvider(context.extensionUri); // Instantiated ChatbotViewProvider
+
+	const generateDocsViewProvider = new GenerateDocsViewProvider(context.extensionUri);
+
+	context.subscriptions.push(
+		vscode.window.registerWebviewViewProvider(VersionControlViewProvider.viewType, versionControlViewProvider));
+
+	context.subscriptions.push(
+		vscode.window.registerWebviewViewProvider(ChatbotViewProvider.viewType, chatbotViewProvider)
+	);
+	context.subscriptions.push(
+		vscode.window.registerWebviewViewProvider(GenerateDocsViewProvider.viewType, generateDocsViewProvider)
+	);
 }
 
 // This method is called when your extension is deactivated
