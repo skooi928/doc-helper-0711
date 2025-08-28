@@ -33,3 +33,6 @@ build/
 .vscode/
 
 .env
+
+# A file for testing rag implementation
+README.md

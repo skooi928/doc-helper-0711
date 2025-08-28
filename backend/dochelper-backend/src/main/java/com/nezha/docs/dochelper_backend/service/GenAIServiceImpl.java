@@ -9,7 +9,7 @@ import com.nezha.docs.dochelper_backend.controller.dto.ChatRequest;
 @RequiredArgsConstructor
 public class GenAIServiceImpl implements GenAIService {
 
-  private final Assistant assistant;
+  private final RAGAssistant assistant;
 
   @Override
   public String getResponse(ChatRequest request) {
