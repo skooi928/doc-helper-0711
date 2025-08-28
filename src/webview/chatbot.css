@@ -1,0 +1,90 @@
+body {
+    background-color: var(--vscode-editor-background);
+    color: var(--vscode-editor-foreground);
+    font-family: var(--vscode-font-family);
+    font-weight: var(--vscode-font-weight);
+    font-size: clamp(12px, 4vw, 14px);
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    /* Removed flex centering to allow chat container to fill height */
+    height: 100vh;
+}
+
+#chat-container {
+    display: flex;
+    flex-direction: column;
+    height: 90vh;
+    width: 100%;
+    max-width: 800px;
+    min-width: 300px;
+    padding: clamp(10px, 2vw, 20px);
+    border: 1px solid var(--vscode-editor-widget-border);
+    border-radius: 5px;
+    margin: auto;
+    box-sizing: border-box;
+}
+
+#chat-messages {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: clamp(10px, 2vw, 20px);
+}
+
+.message {
+    padding: clamp(8px, 1.5vw, 12px);
+    border-radius: 5px;
+    margin-bottom: 10px;
+    max-width: 90%;
+    word-wrap: break-word;
+}
+
+.user-message {
+    background-color: var(--vscode-list-active-selection-background);
+    color: var(--vscode-list-active-selection-foreground);
+    align-self: flex-end;
+}
+
+.bot-message {
+    background-color: var(--vscode-list-inactive-selection-background);
+}
+
+pre {
+    background-color: var(--vscode-text-block-quote-background);
+    border: 1px solid var(--vscode-text-block-quote-border);
+    padding: clamp(8px, 1.5vw, 12px);
+    border-radius: 5px;
+    overflow-x: auto;
+}
+
+code {
+    font-family: var(--vscode-editor-font-family);
+}
+
+#chat-input-container {
+    display: flex;
+    padding-top: clamp(10px, 2vw, 20px);
+    border-top: 1px solid var(--vscode-editor-widget-border);
+    flex-shrink: 0;
+}
+
+#chat-input {
+    flex-grow: 1;
+    background-color: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border: 1px solid var(--vscode-input-border);
+    padding: clamp(5px, 1vw, 8px);
+}
+
+#send-button {
+    background-color: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    border: none;
+    padding: clamp(5px, 1vw, 8px) clamp(10px, 2vw, 15px);
+    margin-left: 10px;
+    cursor: pointer;
+}
+
+#send-button:hover {
+    background-color: var(--vscode-button-hover-background);
+}

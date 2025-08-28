@@ -1,0 +1,28 @@
+body {
+    background-color: var(--vscode-editor-background);
+    color: var(--vscode-editor-foreground);
+    font-family: var(--vscode-font-family);
+    font-weight: var(--vscode-font-weight);
+    font-size: var(--vscode-font-size);
+}
+
+pre {
+    background-color: var(--vscode-text-block-quote-background);
+    border: 1px solid var(--vscode-text-block-quote-border);
+    padding: 10px;
+    border-radius: 5px;
+    overflow-x: auto;
+}
+
+button {
+    background-color: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    border: none;
+    padding: 5px 10px;
+    margin: 5px 0;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: var(--vscode-button-hover-background);
+}

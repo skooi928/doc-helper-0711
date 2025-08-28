@@ -1,5 +1,8 @@
 import * as vscode from 'vscode';
 import { initDochRepo, updateDochContext, watchDocState } from './utils/doch';
+import { VersionControlViewProvider } from './providers/versionControlViewProvider';
+import { ChatbotViewProvider } from './providers/chatbotViewProvider'; // Added this import
+import { GenerateDocsViewProvider } from './providers/generateDocsViewProvider';
 
 export function activate(context: vscode.ExtensionContext) {
   // Update on start
@@ -30,6 +33,21 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
   context.subscriptions.push(initCmd);
+
+  // Webview after the doch repo is initialized
+	const versionControlViewProvider = new VersionControlViewProvider(context.extensionUri);
+	const chatbotViewProvider = new ChatbotViewProvider(context.extensionUri); // Instantiated ChatbotViewProvider
+	const generateDocsViewProvider = new GenerateDocsViewProvider(context.extensionUri);
+
+	context.subscriptions.push(
+		vscode.window.registerWebviewViewProvider(VersionControlViewProvider.viewType, versionControlViewProvider));
+
+	context.subscriptions.push(
+		vscode.window.registerWebviewViewProvider(ChatbotViewProvider.viewType, chatbotViewProvider)
+	);
+	context.subscriptions.push(
+		vscode.window.registerWebviewViewProvider(GenerateDocsViewProvider.viewType, generateDocsViewProvider)
+	);
 
   // Show status of the opened file
   // create status bar item
