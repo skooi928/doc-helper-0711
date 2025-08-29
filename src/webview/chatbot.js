@@ -43,8 +43,15 @@
         fileElement.innerHTML = `
             <span class="file-icon">📄</span>
             <span class="file-name" title="${file.name}">${file.name}</span>
-            <button class="remove-file" onclick="removeFile('${file.name}')">×</button>
+            <button class="remove-file" data-filename="${file.name}">×</button>
         `;
+        
+        // Add event listener to the remove button
+        const removeButton = fileElement.querySelector('.remove-file');
+        removeButton.addEventListener('click', () => {
+            removeFile(file.name);
+        });
+        
         uploadedFilesContainer.appendChild(fileElement);
     }
 
@@ -52,6 +59,9 @@
         uploadedFiles = uploadedFiles.filter(file => file.name !== fileName);
         updateUploadedFilesDisplay();
     }
+
+    // Make removeFile globally accessible
+    window.removeFile = removeFile;
 
     function updateUploadedFilesDisplay() {
         uploadedFilesContainer.innerHTML = '';
@@ -64,22 +74,22 @@
         }
     }
 
-    // Make removeFile globally accessible
-    window.removeFile = removeFile;
-
     // Send message
-    function sendMessage() {
+    async function sendMessage() {
         const question = chatInput.value.trim();
         if (question) {
-            // Send the question to the extension
+            // read each File as UTF-8 text before posting
+            const filesPayload = await Promise.all(
+                uploadedFiles.map(async file => ({
+                name: file.name,
+                content: await file.text() // wait for file content
+                }))
+            );
+
             vscode.postMessage({
                 type: 'askQuestion',
                 value: question,
-                files: uploadedFiles.map(file => ({
-                    name: file.name,
-                    size: file.size,
-                    type: file.type
-                }))
+                files: filesPayload
             });
             
             // Display the user's question immediately

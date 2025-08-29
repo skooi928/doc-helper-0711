@@ -22,7 +22,7 @@ body {
 
 #uploaded-files {
     display: none;
-    padding: 8px 0;
+    padding: 8px 8px 0 8px;
     border-bottom: 1px solid var(--vscode-panel-border);
     margin-bottom: 8px;
 }

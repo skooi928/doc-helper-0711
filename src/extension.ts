@@ -33,7 +33,7 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(initCmd);
 
   // Webview after the doch repo is initialized
-	const chatbotViewProvider = new ChatbotViewProvider(context.extensionUri); 
+	const chatbotViewProvider = new ChatbotViewProvider(context.extensionUri, context); 
 	context.subscriptions.push(
 		vscode.window.registerWebviewViewProvider(ChatbotViewProvider.viewType, chatbotViewProvider)
 	);
