@@ -1,88 +1,242 @@
 body {
-    background-color: var(--vscode-editor-background);
-    color: var(--vscode-editor-foreground);
+    background-color: var(--vscode-sidebar-background);
+    color: var(--vscode-foreground);
     font-family: var(--vscode-font-family);
     font-weight: var(--vscode-font-weight);
-    font-size: clamp(12px, 4vw, 14px);
+    font-size: 13px;
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    /* Removed flex centering to allow chat container to fill height */
     height: 100vh;
+    overflow: hidden;
 }
 
 #chat-container {
     display: flex;
     flex-direction: column;
-    height: 90vh;
+    height: 100vh;
     width: 100%;
-    max-width: 800px;
-    min-width: 300px;
-    padding: clamp(10px, 2vw, 20px);
-    border: 1px solid var(--vscode-editor-widget-border);
-    border-radius: 5px;
-    margin: auto;
+    padding: 12px;
     box-sizing: border-box;
+}
+
+#uploaded-files {
+    display: none;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--vscode-panel-border);
+    margin-bottom: 8px;
+}
+
+#uploaded-files.has-files {
+    display: block;
+}
+
+.uploaded-file {
+    display: flex;
+    align-items: center;
+    padding: 6px 8px;
+    background-color: var(--vscode-list-inactive-selection-background);
+    border-radius: 4px;
+    margin-bottom: 4px;
+    font-size: 12px;
+}
+
+.file-icon {
+    margin-right: 6px;
+    opacity: 0.7;
+}
+
+.file-name {
+    flex-grow: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.remove-file {
+    background: none;
+    border: none;
+    color: var(--vscode-foreground);
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 2px;
+    opacity: 0.6;
+}
+
+.remove-file:hover {
+    background-color: var(--vscode-list-hover-background);
+    opacity: 1;
 }
 
 #chat-messages {
     flex-grow: 1;
     overflow-y: auto;
-    padding: clamp(10px, 2vw, 20px);
+    padding: 0;
+    margin-bottom: 12px;
+    scroll-behavior: smooth;
+}
+
+#chat-messages::-webkit-scrollbar {
+    width: 6px;
+}
+
+#chat-messages::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#chat-messages::-webkit-scrollbar-thumb {
+    background-color: var(--vscode-scrollbarSlider-background);
+    border-radius: 3px;
+}
+
+#chat-messages::-webkit-scrollbar-thumb:hover {
+    background-color: var(--vscode-scrollbarSlider-hover-background);
 }
 
 .message {
-    padding: clamp(8px, 1.5vw, 12px);
-    border-radius: 5px;
-    margin-bottom: 10px;
-    max-width: 90%;
+    padding: 12px 16px;
+    margin-bottom: 16px;
     word-wrap: break-word;
+    font-size: 13px;
+    line-height: 1.5;
 }
 
 .user-message {
-    background-color: var(--vscode-list-active-selection-background);
-    color: var(--vscode-list-active-selection-foreground);
-    align-self: flex-end;
+    background-color: var(--vscode-input-background);
+    border: 1px solid var(--vscode-input-border);
+    border-radius: 12px;
+    margin-left: 20px;
+    position: relative;
+}
+
+.user-message::before {
+    content: "👤";
+    position: absolute;
+    left: -26px;
+    top: 12px;
+    font-size: 16px;
 }
 
 .bot-message {
-    background-color: var(--vscode-list-inactive-selection-background);
+    background-color: transparent;
+    border: none;
+    margin-right: 20px;
+    position: relative;
+    padding-left: 30px;
+}
+
+.bot-message::before {
+    content: "🤖";
+    position: absolute;
+    left: -4px;
+    top: 12px;
+    font-size: 16px;
 }
 
 pre {
     background-color: var(--vscode-text-block-quote-background);
     border: 1px solid var(--vscode-text-block-quote-border);
-    padding: clamp(8px, 1.5vw, 12px);
-    border-radius: 5px;
+    padding: 12px;
+    border-radius: 6px;
     overflow-x: auto;
+    font-size: 12px;
+    margin: 8px 0;
 }
 
 code {
     font-family: var(--vscode-editor-font-family);
+    background-color: var(--vscode-text-block-quote-background);
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: 12px;
 }
 
 #chat-input-container {
     display: flex;
-    padding-top: clamp(10px, 2vw, 20px);
-    border-top: 1px solid var(--vscode-editor-widget-border);
+    flex-direction: column;
+    background-color: var(--vscode-input-background);
+    border: 1px solid var(--vscode-input-border);
+    border-radius: 8px;
     flex-shrink: 0;
+    min-height: 40px;
+    position: relative;
+}
+
+#chat-input-wrapper {
+    display: flex;
+    align-items: flex-end;
+    padding: 8px;
+    gap: 8px;
 }
 
 #chat-input {
     flex-grow: 1;
-    background-color: var(--vscode-input-background);
+    background: transparent;
     color: var(--vscode-input-foreground);
-    border: 1px solid var(--vscode-input-border);
-    padding: clamp(5px, 1vw, 8px);
+    border: none;
+    padding: 6px 0;
+    font-size: 13px;
+    line-height: 1.4;
+    resize: none;
+    outline: none;
+    min-height: 20px;
+    max-height: 120px;
+    overflow-y: auto;
+    font-family: var(--vscode-font-family);
+}
+
+#chat-input::placeholder {
+    color: var(--vscode-input-placeholder-foreground);
+}
+
+.input-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+#upload-button {
+    background: none;
+    border: none;
+    color: var(--vscode-icon-foreground);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.1s;
+}
+
+#upload-button:hover {
+    background-color: var(--vscode-toolbar-hover-background);
 }
 
 #send-button {
-    background-color: var(--vscode-button-background);
-    color: var(--vscode-button-foreground);
+    background: none;
     border: none;
-    padding: clamp(5px, 1vw, 8px) clamp(10px, 2vw, 15px);
-    margin-left: 10px;
+    color: var(--vscode-icon-foreground);
     cursor: pointer;
+    padding: 6px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.1s;
+}
+
+#send-button:hover:not(:disabled) {
+    background-color: var(--vscode-toolbar-hover-background);
+}
+
+#send-button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+#file-input {
+    display: none;
 }
 
 #send-button:hover {

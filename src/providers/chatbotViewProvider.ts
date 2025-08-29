@@ -73,15 +73,31 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 				<link href="${styleMainUri}" rel="stylesheet">
                 <link href="${styleVscodeUri}" rel="stylesheet">
 
-				<title>Chatbot</title>
+				<title>Doc Helper AI</title>
 			</head>
 			<body>
 				<div id="chat-container">
+					<div id="uploaded-files"></div>
 					<div id="chat-messages"></div>
 					<div id="chat-input-container">
-						<input type="text" id="chat-input" placeholder="Ask a question...">
-						<button id="send-button">Send</button>
+						<div id="chat-input-wrapper">
+							<textarea id="chat-input" placeholder="Ask about your documentation..." rows="1"></textarea>
+							<div class="input-actions">
+								<button id="upload-button" title="Upload file">
+									<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+										<path d="M7.5 2.5V12h1V2.5l3.25 3.25.707-.707L8 .586 3.543 5.043l.707.707L7.5 2.5z"/>
+										<path d="M2 8v6a1 1 0 001 1h10a1 1 0 001-1V8h-1v6H3V8H2z"/>
+									</svg>
+								</button>
+								<button id="send-button" title="Send message" disabled>
+									<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+										<path d="M1.724 1.053a.5.5 0 01.671-.583l12.5 6a.5.5 0 010 .894l-12.5 6a.5.5 0 01-.671-.583L3.227 8 1.724 1.053zM3.92 7L2.695 2.525 12.998 7H3.92zm0 2h9.078L2.695 13.475 3.92 9z"/>
+									</svg>
+								</button>
+							</div>
+						</div>
 					</div>
+					<input type="file" id="file-input" multiple accept=".txt,.md,.json,.js,.ts,.py,.java,.cpp,.c,.h,.hpp,.cs,.php,.rb,.go,.rs,.swift,.kt,.scala,.sh,.yml,.yaml,.xml,.html,.css,.sql">
 				</div>
 
 				<script nonce="${nonce}" src="${scriptUri}"></script>
