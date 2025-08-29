@@ -5,11 +5,9 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'doc-helper-chatbot';
 
     private _view?: vscode.WebviewView;
-    private _chatHistory: any[] = [];
 
     constructor(
         private readonly _extensionUri: vscode.Uri,
-        private readonly _context: vscode.ExtensionContext,
     ) { }
 
     public resolveWebviewView(
@@ -22,46 +20,23 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
         webviewView.webview.options = {
             // Allow scripts in the webview
             enableScripts: true,
-
             localResourceRoots: [
                 this._extensionUri
-            ]
+            ],
         };
-
-        // Retain context when webview is hidden to preserve chat history
-        webviewView.webview.options = {
-            ...webviewView.webview.options,
-            enableScripts: true,
-            localResourceRoots: [this._extensionUri]
-        };
-
-        // Preserve webview state when hidden
-        (webviewView as any).retainContextWhenHidden = true;
 
         webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
-        // Restore saved state
-        const savedState = this._context.workspaceState.get<any>('docHelperChatState');
-        if (savedState && savedState.chatHistory) {
-            this._chatHistory = savedState.chatHistory;
-            
-            // Restore chat history to webview
-            setTimeout(() => {
-                webviewView.webview.postMessage({
-                    type: 'restoreState',
-                    state: savedState
-                });
-            }, 500);
-        }
+        // setTimeout(() => {
+        //     webviewView.webview.postMessage({ type: 'restoreState' });
+        // }, 100);
 
-        // Save state when webview is hidden or disposed
-        webviewView.onDidDispose(() => {
-            this._saveState();
-        });
-
+        // when the view is hidden, trigger a save
         webviewView.onDidChangeVisibility(() => {
             if (!webviewView.visible) {
-                this._saveState();
+                webviewView.webview.postMessage({ type: 'saveState' });
+            } else {
+                webviewView.webview.postMessage({ type: 'restoreState' });
             }
         });
 
@@ -69,45 +44,26 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
             switch (data.type) {
                 case 'askQuestion': {
                     const question: string = data.value;
-                    // Store user message in history
-                    this._chatHistory.push({ sender: 'user', content: question });
                     
                     // Use a fixed userId (e.g., 1) for demonstration purposes.
                     // In a real application, user sessions is needed. So everyone can have their memory session to access with the chatbot.
                     try {
                         const answer = await askDocumentationQuestion(1, question, data.files); // add files
-                        // Store AI response in history
-                        this._chatHistory.push({ sender: 'bot', content: answer });
                         webviewView.webview.postMessage({ type: 'addAIAnswer', value: answer });
-                        // Save state after each interaction
-                        this._saveState();
                     } catch (error: any) {
                         const errorMsg = 'Error: ' + error.message;
-                        this._chatHistory.push({ sender: 'bot', content: errorMsg });
                         webviewView.webview.postMessage({ type: 'addAIAnswer', value: errorMsg });
-                        // Save state after each interaction
-                        this._saveState();
                     }
                     break;
                 }
-                case 'clearHistory': {
-                    // Clear chat history
-                    this._chatHistory = [];
-                    this._saveState();
+                case 'closeWindow': {
+                    if (this._view?.onDidDispose) {
+                        webviewView.webview.postMessage({type:'saveState'});
+                    }
                     break;
                 }
             }
         });
-    }
-
-    private _saveState() {
-        if (this._view) {
-            const state = {
-                chatHistory: this._chatHistory,
-                timestamp: Date.now()
-            };
-            this._context.workspaceState.update('docHelperChatState', state);
-        }
     }
 
     private _getHtmlForWebview(webview: vscode.Webview) {

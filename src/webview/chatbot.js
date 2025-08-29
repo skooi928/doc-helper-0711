@@ -10,6 +10,32 @@
     
     let uploadedFiles = [];
 
+    let chatState = {
+        messages: [],       // { sender: 'user'|'bot', text: string }
+        files: []           // { name: string, content: string }
+    };
+
+    // restore from any saved state
+    function restoreState() {
+        const saved = vscode.getState();
+        if (!saved) {return;}
+        chatState = saved;
+
+        // restore uploaded files
+        saved.files.forEach(f => {
+        restoreUploadedFile(f, false);
+        });
+        updateUploadedFilesDisplay();
+
+        // restore messages
+        saved.messages.forEach(m => {
+        restoreMessage(m.sender, m.text, false);
+        });
+
+        // DEBUG refresh new state
+        // vscode.setState(chatState);
+    }
+
     // Auto-resize textarea
     function adjustTextareaHeight() {
         chatInput.style.height = 'auto';
@@ -53,11 +79,34 @@
         });
         
         uploadedFilesContainer.appendChild(fileElement);
+
+        chatState.files.push(file);
+        saveState();
+    }
+
+    function restoreUploadedFile(file) {
+        const fileElement = document.createElement('div');
+        fileElement.className = 'uploaded-file';
+        fileElement.innerHTML = `
+            <span class="file-icon">📄</span>
+            <span class="file-name" title="${file.name}">${file.name}</span>
+            <button class="remove-file" data-filename="${file.name}">×</button>
+        `;
+        
+        // Add event listener to the remove button
+        const removeButton = fileElement.querySelector('.remove-file');
+        removeButton.addEventListener('click', () => {
+            removeFile(file.name);
+        });
+        
+        uploadedFilesContainer.appendChild(fileElement);
     }
 
     function removeFile(fileName) {
         uploadedFiles = uploadedFiles.filter(file => file.name !== fileName);
         updateUploadedFilesDisplay();
+        chatState.files = chatState.files.filter(file => file.name !== fileName);
+        saveState();
     }
 
     // Make removeFile globally accessible
@@ -124,6 +173,10 @@
         }
     });
 
+    function saveState() {
+        vscode.setState(chatState);
+    }
+
     // Listen for messages from the extension
     let typingMessage = null;
     
@@ -138,11 +191,49 @@
                 }
                 addMessage('bot', message.value);
                 break;
+            case 'restoreState':
+                restoreState();
+                break;
+            case 'saveState':
+                saveState();
+                break;
         }
     });
 
     // Add message to chat
     function addMessage(sender, text, isTyping = false) {
+        const messageElement = document.createElement('div');
+        messageElement.classList.add('message', sender === 'user' ? 'user-message' : 'bot-message');
+
+        if (isTyping) {
+            typingMessage = messageElement;
+        }
+
+        let formattedText = text;
+        
+        // Format code blocks
+        if (!isTyping) {
+            const codeBlockRegex = /```([\s\S]*?)```/g;
+            formattedText = text.replace(codeBlockRegex, (match, code) => {
+                return `<pre><code>${escapeHtml(code.trim())}</code></pre>`;
+            });
+            
+            // Format inline code
+            formattedText = formattedText.replace(/`([^`]+)`/g, '<code>$1</code>');
+            chatState.messages.push({ sender, text });
+            saveState();
+        }
+
+        messageElement.innerHTML = formattedText;
+        chatMessages.appendChild(messageElement);
+        
+        // Scroll to bottom
+        setTimeout(() => {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }, 0);
+    }
+
+    function restoreMessage(sender, text, isTyping = false) {
         const messageElement = document.createElement('div');
         messageElement.classList.add('message', sender === 'user' ? 'user-message' : 'bot-message');
 
