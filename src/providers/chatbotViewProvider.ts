@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { askDocumentationQuestion } from '../service/apiCall';
 
 export class ChatbotViewProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'doc-helper-chatbot';
@@ -27,16 +28,20 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 
         webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
-        webviewView.webview.onDidReceiveMessage(data => {
+        webviewView.webview.onDidReceiveMessage(async data => {
             switch (data.type) {
-                case 'askQuestion':
-                    {
-                        // Echo back the question for now
-                        setTimeout(() => {
-                            webviewView.webview.postMessage({ type: 'addAnswer', value: 'Chatbot: This is a mock answer.' });
-                        }, 1000);
-                        break;
+                case 'askQuestion': {
+                    const question: string = data.value;
+                    // Use a fixed userId (e.g., 1) for demonstration purposes.
+                    // In a real application, user sessions is needed. So everyone can have their memory session to access with the chatbot.
+                    try {
+                        const answer = await askDocumentationQuestion(1, question);
+                        webviewView.webview.postMessage({ type: 'addAIAnswer', value: answer });
+                    } catch (error: any) {
+                        webviewView.webview.postMessage({ type: 'addAIAnswer', value: 'Error: ' + error.message });
                     }
+                    break;
+                }
             }
         });
     }
@@ -47,6 +52,7 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 
         // Do the same for the stylesheet.
         const styleMainUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'src', 'webview', 'chatbot.css'));
+        const styleVscodeUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'src', 'webview', 'vscode.css'));
 
         // Use a nonce to only allow a specific script to be run.
         const nonce = getNonce();
@@ -65,6 +71,7 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 				<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 				<link href="${styleMainUri}" rel="stylesheet">
+                <link href="${styleVscodeUri}" rel="stylesheet">
 
 				<title>Chatbot</title>
 			</head>
