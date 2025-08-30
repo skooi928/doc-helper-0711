@@ -75,7 +75,8 @@
       },
       {
         "command": "doc-helper-0711.generateDoc",
-        "title": "Generate Documentation"
+        "title": "Generate Documentation",
+        "icon": "$(sparkle)"
       },
       {
         "command": "doc-helper-0711.openFile",
@@ -93,7 +94,16 @@
         "when": "docHelper:dochInitialized == true",
         "category": "Doc Helper"
       }
-    ]
+    ],
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "doc-helper-0711.generateDoc",
+          "when": "view == doc-helper-stats && (viewItem == undocumented || viewItem == outOfDate)",
+          "group": "inline"
+        }
+      ]
+    }
   },
   "bin": {
     "doch": "./dist/cli.js"

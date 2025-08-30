@@ -40,13 +40,17 @@ export class FileStatusProvider implements vscode.TreeDataProvider<FileStatusIte
   async getChildren(element?: FileStatusItem): Promise<FileStatusItem[]> {
     if (!element) {
       // top-level categories
-      return [
+      const categories = [
         new FileStatusItem('Undocumented', undefined, undefined, undefined, undefined, vscode.TreeItemCollapsibleState.Collapsed),
         new FileStatusItem('Out-of-date', undefined, undefined, undefined, undefined, vscode.TreeItemCollapsibleState.Collapsed),
         new FileStatusItem('Documented', undefined, undefined, undefined, undefined, vscode.TreeItemCollapsibleState.Collapsed),
         new FileStatusItem('No Source', undefined, undefined, undefined, undefined, vscode.TreeItemCollapsibleState.Collapsed),
         new FileStatusItem('Independent Markdown', undefined, undefined, undefined, undefined, vscode.TreeItemCollapsibleState.Collapsed)
       ];
+
+      // Set contextValue to 'category' for all parent items
+      categories.forEach(item => item.contextValue = 'category');
+      return categories;
     }
 
     const folders = vscode.workspace.workspaceFolders;
@@ -190,10 +194,11 @@ export class FileStatusProvider implements vscode.TreeDataProvider<FileStatusIte
         (element.label === 'Independent Markdown' && status === 'independent')
       ) {
         const name = path.basename(uri.fsPath);
-        const cmd: vscode.Command =
-          status === 'undocumented'
-            ? { command: 'doc-helper-0711.generateDoc', title: 'Generate Doc', arguments: [uri] }
-            : { command: 'doc-helper-0711.openFile',     title: 'Open File',     arguments: [uri] };
+        const cmd: vscode.Command = { 
+          command: 'doc-helper-0711.openFile',
+          title: 'Open File',
+          arguments: [uri] 
+        };
 
         items.push(new FileStatusItem(name, uri, status, uri.fsPath, cmd));
       }

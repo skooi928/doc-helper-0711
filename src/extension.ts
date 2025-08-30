@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { initDochRepo, updateDochContext, watchDocState } from './utils/doch';
 import { ChatbotViewProvider } from './providers/chatbotViewProvider'; 
-import { FileStatusProvider } from './providers/fileStatusProvider';
+import { FileStatusItem, FileStatusProvider } from './providers/fileStatusProvider';
 
 export function activate(context: vscode.ExtensionContext) {
   // Update on start
@@ -44,9 +44,11 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider('doc-helper-stats', fileStatusProvider),
     vscode.commands.registerCommand('doc-helper-0711.refreshFileStatus', () => fileStatusProvider.refresh()),
-    vscode.commands.registerCommand('doc-helper-0711.generateDoc', (uri: vscode.Uri) => {
-      // TODO: call your AI service, then open a new untitled doc with the generated content
-      vscode.window.showInformationMessage(`Doc Helper: Generate documentation for ${uri.fsPath}`);
+    vscode.commands.registerCommand('doc-helper-0711.generateDoc', async (item: FileStatusItem) => {
+      if (item.fileUri) {
+        vscode.window.showInformationMessage(`Doc Helper: Generating documentation for ${item.label}...`);
+        // TODO: Call your AI service to generate docs
+      }
     }),
     vscode.commands.registerCommand('doc-helper-0711.openFile', (uri: vscode.Uri) => {
       vscode.window.showTextDocument(uri);
