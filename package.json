@@ -99,7 +99,7 @@
       "view/item/context": [
         {
           "command": "doc-helper-0711.generateDoc",
-          "when": "view == doc-helper-stats && (viewItem == undocumented || viewItem == outOfDate)",
+          "when": "view == doc-helper-stats && viewItem == undocumented",
           "group": "inline"
         }
       ]

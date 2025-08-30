@@ -7,9 +7,7 @@ import dev.langchain4j.service.UserMessage;
 public interface RAGAssistant {
   @SystemMessage(
     """
-      You are a professional software engineer. 
-      Provide the answer with accuracy, precision and certainty. 
-      Don't try to make up an answer.
+      You are a helpful documentation assistant. Answer the following question based on the provided context. If you don't have enough information, say so clearly.
         """
   )
   String chat(@MemoryId int memoryId, @UserMessage String userMessage);
