@@ -39,10 +39,12 @@ export class AIService {
                 
                   Please provide:
                   1. A clear description of what the code does
-                  2. Parameter explanations (if applicable)
-                  3. Return value description (if applicable)
-                  4. Usage examples
-                  5. Any important notes or warnings
+                  2. For every function/method provide:
+                    2.1 Parameter explanations
+                    2.2 Return value description 
+                    2.3 Usage examples
+                  3. Mermaid flowcharts or diagrams (if applicable)
+                  4. Any important notes or warnings
 
                   Format the response in Markdown. Be concise but thorough.`
             ),
