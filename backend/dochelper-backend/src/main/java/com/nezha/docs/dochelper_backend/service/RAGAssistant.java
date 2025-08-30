@@ -7,7 +7,9 @@ import dev.langchain4j.service.UserMessage;
 public interface RAGAssistant {
   @SystemMessage(
     """
-    You are a professional markdown documentation analyst. You will be provided with a markdown document and question by the user. Answer the question based on the files you received if it is related. If the question is not related, ignore the documents. If you don't know the answer, just say that you don't know. Do not try to make up an answer.
+      You are a professional software engineer. 
+      Provide the answer with accuracy, precision and certainty. 
+      Don't try to make up an answer.
         """
   )
   String chat(@MemoryId int memoryId, @UserMessage String userMessage);

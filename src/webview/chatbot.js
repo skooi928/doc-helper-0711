@@ -23,16 +23,16 @@
 
         // restore uploaded files
         saved.files.forEach(f => {
-        restoreUploadedFile(f, false);
+            uploadedFiles.push(f);
         });
         updateUploadedFilesDisplay();
 
         // restore messages
         saved.messages.forEach(m => {
-        restoreMessage(m.sender, m.text, false);
+            restoreMessage(m.sender, m.text, false);
         });
 
-        // DEBUG refresh new state
+        // // DEBUG refresh new state
         // vscode.setState(chatState);
     }
 
@@ -64,27 +64,6 @@
     });
 
     function addUploadedFile(file) {
-        const fileElement = document.createElement('div');
-        fileElement.className = 'uploaded-file';
-        fileElement.innerHTML = `
-            <span class="file-icon">📄</span>
-            <span class="file-name" title="${file.name}">${file.name}</span>
-            <button class="remove-file" data-filename="${file.name}">×</button>
-        `;
-        
-        // Add event listener to the remove button
-        const removeButton = fileElement.querySelector('.remove-file');
-        removeButton.addEventListener('click', () => {
-            removeFile(file.name);
-        });
-        
-        uploadedFilesContainer.appendChild(fileElement);
-
-        chatState.files.push(file);
-        saveState();
-    }
-
-    function restoreUploadedFile(file) {
         const fileElement = document.createElement('div');
         fileElement.className = 'uploaded-file';
         fileElement.innerHTML = `

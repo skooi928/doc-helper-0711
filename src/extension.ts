@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { initDochRepo, updateDochContext, watchDocState } from './utils/doch';
-import { ChatbotViewProvider } from './providers/chatbotViewProvider'; // Added this import
+import { ChatbotViewProvider } from './providers/chatbotViewProvider'; 
+import { FileStatusProvider } from './providers/fileStatusProvider';
 
 export function activate(context: vscode.ExtensionContext) {
   // Update on start
@@ -37,6 +38,34 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.window.registerWebviewViewProvider(ChatbotViewProvider.viewType, chatbotViewProvider)
 	);
+
+  // Register fileStatus provider for the tree view
+  const fileStatusProvider = new FileStatusProvider(context);
+  context.subscriptions.push(
+    vscode.window.registerTreeDataProvider('doc-helper-stats', fileStatusProvider),
+    vscode.commands.registerCommand('doc-helper-0711.refreshFileStatus', () => fileStatusProvider.refresh()),
+    vscode.commands.registerCommand('doc-helper-0711.generateDoc', (uri: vscode.Uri) => {
+      // TODO: call your AI service, then open a new untitled doc with the generated content
+      vscode.window.showInformationMessage(`Doc Helper: Generate documentation for ${uri.fsPath}`);
+    }),
+    vscode.commands.registerCommand('doc-helper-0711.openFile', (uri: vscode.Uri) => {
+      vscode.window.showTextDocument(uri);
+    })
+  );
+
+  // Refresh on any source/docs change
+  const codeWatcher = vscode.workspace.createFileSystemWatcher('**/*.{ts,js,tsx,jsx,md}');
+  codeWatcher.onDidCreate(() => fileStatusProvider.refresh());
+  codeWatcher.onDidChange(() => fileStatusProvider.refresh());
+  codeWatcher.onDidDelete(() => fileStatusProvider.refresh());
+  context.subscriptions.push(codeWatcher);
+
+  // Refresh when doc-state.json changes
+  const docStateWatcher = vscode.workspace.createFileSystemWatcher('**/.doch/metadata/doc-state.json');
+  docStateWatcher.onDidCreate(() => fileStatusProvider.refresh());
+  docStateWatcher.onDidChange(() => fileStatusProvider.refresh());
+  docStateWatcher.onDidDelete(() => fileStatusProvider.refresh());
+  context.subscriptions.push(docStateWatcher);
 
   // Show status of the opened file
   // create status bar item
@@ -99,8 +128,9 @@ export function activate(context: vscode.ExtensionContext) {
 
       const codeUri = vscode.Uri.joinPath(folder.uri, ...rel.split(/[\\/]/));
       const codeStat = await vscode.workspace.fs.stat(codeUri);
-      const codeMtime = codeStat.mtime;
-
+      const codeTime = Math.max(codeStat.ctime, codeStat.mtime);
+      const docStat = docExists ? await vscode.workspace.fs.stat(docUri) : undefined;
+      const docTime = docStat ? Math.max(docStat.ctime, docStat.mtime) : 0;
       const entry = state[rel];
       const commitTime = entry ? Date.parse(entry.timestamp) : undefined;
 
@@ -108,7 +138,7 @@ export function activate(context: vscode.ExtensionContext) {
         text = '$(alert) Undocumented';
         bg = new vscode.ThemeColor('statusBarItem.errorBackground');
       }
-      else if (entry && commitTime !== undefined && commitTime < codeMtime) {
+      else if (entry && commitTime !== undefined && ((commitTime < codeTime) || (commitTime < docTime))) {
         text = '$(alert) Stale';
         bg = new vscode.ThemeColor('statusBarItem.warningBackground');
       }
@@ -148,11 +178,14 @@ export function activate(context: vscode.ExtensionContext) {
       } else {
         const srcRel = `${base}.${foundExt}`;
         const codeUri = vscode.Uri.joinPath(folder.uri, ...srcRel.split(/[\\/]/));
-        const codeMtime = (await vscode.workspace.fs.stat(codeUri)).mtime;
+        const srcStat = await vscode.workspace.fs.stat(codeUri);
+        const codeTime = Math.max(srcStat.ctime, srcStat.mtime);
+        const docsStat = await vscode.workspace.fs.stat(uri);
+        const docsTime = Math.max(docsStat.ctime, docsStat.mtime);
         const entry = state[srcRel];
         const commitTime = entry ? Date.parse(entry.timestamp) : undefined;
 
-        if (entry && commitTime !== undefined && commitTime < codeMtime) {
+        if (entry && commitTime !== undefined && ((commitTime < codeTime) || (commitTime < docsTime))) {
           text = '$(alert) Stale';
           bg = new vscode.ThemeColor('statusBarItem.warningBackground');
         }

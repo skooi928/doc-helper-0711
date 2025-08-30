@@ -93,7 +93,7 @@ public class AIConfig {
 
     return GoogleAiGeminiChatModel.builder()
         .apiKey(apiKey)
-        .modelName("gemini-1.5-flash")
+        .modelName("gemini-2.5-flash")
         .build();
   }
 }

@@ -42,6 +42,14 @@
           "icon": "resources/icon.svg",
           "when": "docHelper:dochInitialized"
         }
+      ],
+      "explorer": [
+        {
+          "id": "doc-helper-stats",
+          "name": "Doc Helper: Stats",
+          "icon": "resources/icon.svg",
+          "when": "docHelper:dochInitialized"
+        }
       ]
     },
     "viewsWelcome": [
@@ -60,14 +68,38 @@
       {
         "command": "doc-helper-0711.initDochRepo",
         "title": "Initialize DocHelper Repository"
+      },
+      {
+        "command": "doc-helper-0711.refreshFileStatus",
+        "title": "Refresh File Status"
+      },
+      {
+        "command": "doc-helper-0711.generateDoc",
+        "title": "Generate Documentation"
+      },
+      {
+        "command": "doc-helper-0711.openFile",
+        "title": "Open File"
+      }
+    ],
+    "commandPalette": [
+      {
+        "command": "doc-helper-0711.initDochRepo",
+        "when": "docHelper:dochInitialized == false",
+        "category": "Doc Helper"
+      },
+      {
+        "command": "doc-helper-0711.generateDoc",
+        "when": "docHelper:dochInitialized == true",
+        "category": "Doc Helper"
       }
     ]
   },
-  "bin": { 
-    "doch": "./dist/cli.js" 
+  "bin": {
+    "doch": "./dist/cli.js"
   },
   "scripts": {
-    "start-backend": "cd backend && cd dochelper-backend && ./mvnw spring-boot:run",
+    "start-backend": "cd backend && cd dochelper-backend && mvn spring-boot:run",
     "vscode:prepublish": "npm run package",
     "compile": "npm run check-types && npm run lint && node esbuild.js",
     "watch": "npm-run-all -p start-backend watch:*",
@@ -82,16 +114,19 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.103.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
+    "@types/vscode": "^1.103.0",
     "@typescript-eslint/eslint-plugin": "^8.39.0",
     "@typescript-eslint/parser": "^8.39.0",
-    "eslint": "^9.32.0",
-    "esbuild": "^0.25.8",
-    "npm-run-all": "^4.1.5",
-    "typescript": "^5.9.2",
     "@vscode/test-cli": "^0.0.11",
-    "@vscode/test-electron": "^2.5.2"
+    "@vscode/test-electron": "^2.5.2",
+    "esbuild": "^0.25.8",
+    "eslint": "^9.32.0",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "ignore": "^7.0.5"
   }
 }
