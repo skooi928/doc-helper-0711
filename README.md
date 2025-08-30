@@ -1,16 +1,27 @@
-# doc-helper-0711 README
+# Doc Helper (Track 3, Problem Statement 1)
 
-This is the README for your extension "doc-helper-0711". After writing up a brief description, we recommend including the following sections.
+This is a Visual Studio Code extension prototype to solve the CodeNection Hackathon's track 3 and problem statement 1, **"Fix the Docs: Smarter, Faster, Maintainable Documentation for the Real World by iFAST"**. It is a smart documentation assistant/tool that improves how technical documentation is created, consumed, and maintained in evolving software environments.
+
+## Problems Given
+In real-world tech environments, documentation is a critical but broken part of the software development lifecycle.
+- Writing it is slow, repetitive, and often skipped.
+- Reading it is painful and time-consuming, especially for new joiners.
+- Maintaining it is impractical in fast-changing systems — documentation quickly becomes outdated, misleading, or irrelevant.
+
+This leads to onboarding delays, wasted engineering time, and avoidable bugs — all due to poor or outdated docs.
+
+## Our Idea
+
+To resolve the problems given, we had an idea of making a simple .doch directory prototype (inspired by .git from Git, the well-known version control system) to track the document status and detect stale documentation. The status will all be shown in the explorer view of Visual Studio Code, just below your workspace view for clearer look. For the smart AI-powered tools, we plan to fine-tune LLM with RAG technique to ingest the user's source code and documentation for more precise and reliable answers. 
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+### 1. Simplify Writing
 
-For example if there is an image subfolder under your extension project workspace:
+1. Auto generate technical documentation based on the undocumented source code file.
+![Doc Helper Explorer View with "Generate Documentation" icon/button](https://github.com/user-attachments/assets/0293c971-023f-48b3-a76e-948aeb539e3d)
 
-\!\[feature X\]\(images/feature-x.png\)
-
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+> Documentation incomplete, To be continued here... [TODO]
 
 ## Requirements
 
