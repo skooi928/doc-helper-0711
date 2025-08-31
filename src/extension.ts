@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { initDochRepo, updateDochContext, watchDocState } from './utils/doch';
 import { ChatbotViewProvider } from './providers/chatbotViewProvider'; 
 import { FileStatusItem, FileStatusProvider } from './providers/fileStatusProvider';
-import { generateDocumentation } from './utils/simplifyWriting';
+import { generateDocumentation, summarizeDocumentation } from './utils/simplifyWriting';
 
 export function activate(context: vscode.ExtensionContext) {
   // Update on start
@@ -49,6 +49,11 @@ export function activate(context: vscode.ExtensionContext) {
       if (item.fileUri) {
         // TODO: Call your AI service to generate docs
         await generateDocumentation(item.fileUri);
+      }
+    }),
+    vscode.commands.registerCommand('doc-helper-0711.summarizeDoc', async (item: FileStatusItem) => {
+      if (item.fileUri) {
+        await summarizeDocumentation(item.fileUri);
       }
     }),
     vscode.commands.registerCommand('doc-helper-0711.openFile', (uri: vscode.Uri) => {

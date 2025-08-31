@@ -76,6 +76,11 @@
       {
         "command": "doc-helper-0711.generateDoc",
         "title": "Generate Documentation",
+        "icon": "$(request-changes)"
+      },
+      {
+        "command": "doc-helper-0711.summarizeDoc",
+        "title": "Summarize Documentation",
         "icon": "$(sparkle)"
       },
       {
@@ -100,6 +105,11 @@
         {
           "command": "doc-helper-0711.generateDoc",
           "when": "view == doc-helper-stats && viewItem == undocumented",
+          "group": "inline"
+        },
+        {
+          "command": "doc-helper-0711.summarizeDoc",
+          "when": "view == doc-helper-stats && viewItem == documented-md",
           "group": "inline"
         }
       ]

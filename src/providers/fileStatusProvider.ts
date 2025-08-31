@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import ignore from 'ignore';
 
-export type FileStatus = 'undocumented' | 'outOfDate' | 'documented' | 'noSource' | 'independent';
+export type FileStatus = 'undocumented' | 'outOfDate' | 'documented' | 'documented-md' | 'noSource' | 'independent';
 
 export class FileStatusItem extends vscode.TreeItem {
   constructor(
@@ -177,7 +177,7 @@ export class FileStatusProvider implements vscode.TreeDataProvider<FileStatusIte
             status = 'outOfDate'; // "Stale"
           }
           else if (entry && entry.documented) {
-            status = 'documented'; // "Sync"
+            status = 'documented-md'; // "Sync"
           }
           else {
             status = 'undocumented'; // "Uncommitted Docs"
@@ -190,6 +190,7 @@ export class FileStatusProvider implements vscode.TreeDataProvider<FileStatusIte
         (element.label === 'Undocumented' && status === 'undocumented') ||
         (element.label === 'Out-of-date'  && status === 'outOfDate')   ||
         (element.label === 'Documented'   && status === 'documented') ||
+        (element.label === 'Documented'   && status === 'documented-md') ||
         (element.label === 'No Source'    && status === 'noSource') ||
         (element.label === 'Independent Markdown' && status === 'independent')
       ) {

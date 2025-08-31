@@ -76,4 +76,96 @@ export class AIService {
             throw new Error(`Failed to generate documentation: ${error}`);
         }
     }
+
+    async summarizeDocumentation(content: string): Promise<string> {
+        const model = await this.getLanguageModel();
+        if (!model) {
+            throw new Error('No language model available. Please ensure you have GitHub Copilot or other language models enabled in VS Code.');
+        }
+
+        const messages = [
+            vscode.LanguageModelChatMessage.User(
+                `Create a concise summary of the following documentation. Include:
+                    1. Main purpose/overview
+                    2. Key components or features
+                    3. Important usage notes
+
+                    Keep the summary brief but informative.`
+            ),
+            vscode.LanguageModelChatMessage.User(`Documentation content:
+                ${content}`)
+        ];
+
+        try {
+            const response = await model.sendRequest(
+                messages,
+                {},
+                new vscode.CancellationTokenSource().token
+            );
+
+            let summary = '';
+            for await (const fragment of response.text) {
+                summary += fragment;
+            }
+
+            return summary;
+        } catch (error) {
+            if (error instanceof vscode.LanguageModelError) {
+                throw new Error(`Language model error: ${error.message}`);
+            }
+            throw new Error(`Failed to summarize documentation: ${error}`);
+        }
+    }
+
+    async detectDocumentationIssues(code: string, documentation: string, language: string): Promise<string[]> {
+        const model = await this.getLanguageModel();
+        if (!model) {
+            throw new Error('No language model available. Please ensure you have GitHub Copilot or other language models enabled in VS Code.');
+        }
+
+        const messages = [
+            vscode.LanguageModelChatMessage.User(
+                `Analyze the following code and its documentation to identify potential issues or areas for improvement. Focus on:
+                    1. Missing documentation for functions/classes/methods
+                    2. Outdated documentation that doesn't match the code
+                    3. Unclear or incomplete explanations
+                    4. Missing examples or usage information
+                    5. Inconsistent formatting or style
+
+                    Provide specific, actionable feedback in a numbered list.`
+            ),
+            vscode.LanguageModelChatMessage.User(`Code (${language}):
+                    \`\`\`${language}
+                    ${code}
+                    \`\`\`
+
+                    Documentation:
+                    ${documentation}`)
+        ];
+
+        try {
+            const response = await model.sendRequest(
+                messages,
+                {},
+                new vscode.CancellationTokenSource().token
+            );
+            
+            let issuesText = '';
+            for await (const fragment of response.text) {
+                issuesText += fragment;
+            }
+            
+            // Parse issues into array
+            const issues = issuesText.split('\n')
+                .filter((line: string) => line.match(/^\d+\./))
+                .map((line: string) => line.replace(/^\d+\.\s*/, '').trim());
+            
+            return issues.length > 0 ? issues : [issuesText.trim()];
+        } catch (error) {
+            if (error instanceof vscode.LanguageModelError) {
+                throw new Error(`Language model error: ${error.message}`);
+            }
+            throw new Error(`Failed to detect documentation issues: ${error}`);
+        }
+    }
 }
