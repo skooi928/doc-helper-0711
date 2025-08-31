@@ -20,8 +20,8 @@ To resolve the problems given, we had an idea of making a simple .doch directory
 
 1. Auto generate technical documentation based on the undocumented source code file.
 <p align="center">
-  <img alt="Explorer View" src="https://github.com/user-attachments/assets/0293c971-023f-48b3-a76e-948aeb539e3d" />
-  <img alt="Generated Documentation" src="https://github.com/user-attachments/assets/b4d9f6ea-a556-4850-ab88-635b1573d863" />
+  <img alt="Explorer View" src="https://github.com/user-attachments/assets/0293c971-023f-48b3-a76e-948aeb539e3d" width="45%" />
+  <img alt="Generated Documentation" src="https://github.com/user-attachments/assets/b4d9f6ea-a556-4850-ab88-635b1573d863" width="45%" />
 </p>
 
 > Documentation generated is based on the source code, and it can even generate flowchart!
