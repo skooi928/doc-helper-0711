@@ -19,9 +19,18 @@ To resolve the problems given, we had an idea of making a simple .doch directory
 ### 1. Simplify Writing
 
 1. Auto generate technical documentation based on the undocumented source code file.
-![Doc Helper Explorer View with "Generate Documentation" icon/button](https://github.com/user-attachments/assets/0293c971-023f-48b3-a76e-948aeb539e3d)
+<p align="center">
+  <img alt="Explorer View" src="https://github.com/user-attachments/assets/0293c971-023f-48b3-a76e-948aeb539e3d" />
+  <img alt="Generated Documentation" src="https://github.com/user-attachments/assets/b4d9f6ea-a556-4850-ab88-635b1573d863" />
+</p>
 
-> Documentation incomplete, To be continued here... [TODO]
+> Documentation generated is based on the source code, and it can even generate flowchart!
+
+2. 
+
+### 2. Speed Up Reading
+
+1. Summarize
 
 ## Requirements
 
