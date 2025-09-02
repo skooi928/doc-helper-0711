@@ -29,6 +29,7 @@ body {
 
 #uploaded-files.has-files {
     display: flex;
+    gap: 8px;
     flex-wrap: wrap;
 }
 
@@ -36,7 +37,7 @@ body {
     display: flex;
     align-items: center;
     padding: 6px 8px;
-    background-color: var(--vscode-list-inactive-selection-background);
+    background-color: rgba(97, 114, 131, 0.2);
     border-radius: 4px;
     margin-bottom: 4px;
     font-size: 12px;
