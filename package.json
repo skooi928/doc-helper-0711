@@ -84,6 +84,11 @@
         "icon": "$(sparkle)"
       },
       {
+        "command": "doc-helper-0711.checkDocIssue",
+        "title": "Check Documentation Issues",
+        "icon": "$(alert)"
+      },
+      {
         "command": "doc-helper-0711.openFile",
         "title": "Open File"
       }
@@ -109,6 +114,11 @@
         },
         {
           "command": "doc-helper-0711.summarizeDoc",
+          "when": "view == doc-helper-stats && viewItem == documented-md",
+          "group": "inline"
+        },
+        {
+          "command": "doc-helper-0711.checkDocIssue",
           "when": "view == doc-helper-stats && viewItem == documented-md",
           "group": "inline"
         }

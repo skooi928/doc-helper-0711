@@ -117,7 +117,7 @@ export class AIService {
         }
     }
 
-    async detectDocumentationIssues(code: string, documentation: string, language: string): Promise<string[]> {
+    async detectDocumentationIssues(code: string, documentation: string, language: string): Promise<string> {
         const model = await this.getLanguageModel();
         if (!model) {
             throw new Error('No language model available. Please ensure you have GitHub Copilot or other language models enabled in VS Code.');
@@ -125,14 +125,23 @@ export class AIService {
 
         const messages = [
             vscode.LanguageModelChatMessage.User(
-                `Analyze the following code and its documentation to identify potential issues or areas for improvement. Focus on:
-                    1. Missing documentation for functions/classes/methods
-                    2. Outdated documentation that doesn't match the code
-                    3. Unclear or incomplete explanations
-                    4. Missing examples or usage information
-                    5. Inconsistent formatting or style
+           `Evaluate if the documentation meets these quality standards. Only report issues if there are SIGNIFICANT problems:
 
-                    Provide specific, actionable feedback in a numbered list.`
+               ✅ GOOD DOCUMENTATION should have:
+               - All major functions/classes are documented
+               - Basic explanations of what each function does
+               - At least one usage example or basic usage info
+               - Clean markdown formatting (doesn't need to be perfect)
+               - Documentation generally matches the code
+
+               Only flag issues if:
+               - Major functions are completely undocumented
+               - Documentation is severely outdated or incorrect
+               - No examples or usage guidance at all
+               - Documentation is completely unreadable
+
+               If the documentation meets the basic standards above, respond with "No significant issues found."
+               Otherwise, list only the major problems that need attention.`
             ),
             vscode.LanguageModelChatMessage.User(`Code (${language}):
                     \`\`\`${language}
@@ -155,12 +164,7 @@ export class AIService {
                 issuesText += fragment;
             }
             
-            // Parse issues into array
-            const issues = issuesText.split('\n')
-                .filter((line: string) => line.match(/^\d+\./))
-                .map((line: string) => line.replace(/^\d+\.\s*/, '').trim());
-            
-            return issues.length > 0 ? issues : [issuesText.trim()];
+            return issuesText;
         } catch (error) {
             if (error instanceof vscode.LanguageModelError) {
                 throw new Error(`Language model error: ${error.message}`);

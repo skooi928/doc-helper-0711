@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { initDochRepo, updateDochContext, watchDocState } from './utils/doch';
 import { ChatbotViewProvider } from './providers/chatbotViewProvider'; 
 import { FileStatusItem, FileStatusProvider } from './providers/fileStatusProvider';
-import { generateDocumentation, summarizeDocumentation } from './utils/simplifyWriting';
+import { generateDocumentation, summarizeDocumentation, checkDocumentation } from './utils/simplifyWriting';
 
 export function activate(context: vscode.ExtensionContext) {
   // Update on start
@@ -54,6 +54,11 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('doc-helper-0711.summarizeDoc', async (item: FileStatusItem) => {
       if (item.fileUri) {
         await summarizeDocumentation(item.fileUri);
+      }
+    }),
+    vscode.commands.registerCommand('doc-helper-0711.checkDocIssue', async (item: FileStatusItem) => {
+      if (item.fileUri) {
+        await checkDocumentation(item.fileUri);
       }
     }),
     vscode.commands.registerCommand('doc-helper-0711.openFile', (uri: vscode.Uri) => {
