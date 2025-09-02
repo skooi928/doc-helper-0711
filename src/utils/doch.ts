@@ -101,7 +101,8 @@ export async function initDochRepo(folder: vscode.WorkspaceFolder) {
   for (const [rel, content] of [
     ['config.yml', TEMPLATE_CONFIG],
     ['hooks/post-commit', HOOK_POST_COMMIT],
-    ['hooks/pre-push', HOOK_PRE_PUSH]
+    ['hooks/pre-push', HOOK_PRE_PUSH],
+    ['metadata/doc-state.json', '{}'],
   ] as [string,string][]) {
     // create the file
     await vscode.workspace.fs.writeFile(
