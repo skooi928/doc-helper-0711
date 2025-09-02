@@ -18,74 +18,78 @@ To resolve the problems given, we had an idea of making a simple .doch directory
 
 ### 1. Simplify Writing
 
-1. Auto generate technical documentation based on the undocumented source code file.
+1. Auto generate technical documentation
+- Using fixed template, AI automatically generates documentation based on the undocumented source code.
+
 <p align="center">
   <img alt="Explorer View" src="https://github.com/user-attachments/assets/0293c971-023f-48b3-a76e-948aeb539e3d"/>
+</p>
+
+> The figure above shows how the dashboard looks like for the users and how they can track the files easily. The files are categorized and shown in a tree view structure. Users can easily open and close whichever file category they wanted to see.
+
+<p align="center">
   <img alt="Generated Documentation" src="https://github.com/user-attachments/assets/b4d9f6ea-a556-4850-ab88-635b1573d863"/>
 </p>
 
-> Documentation generated is based on the source code, and it can even generate flowchart!
-
-2. 
+> Documentation generated is based on the source code, and it can even generate flowchart for ease-to-understand visualization! (Note: Users need to install mermaid flowchart extension named "Markdown Preview Mermaid Support" by Matt Bierner to show the flowchart directly in Visual Studio Code.)
 
 ### 2. Speed Up Reading
 
-1. Summarize
+1. Summarize documentation (TLDR)
+
+<p align="center">
+  <img width="1917" height="1022" alt="Image" src="https://github.com/user-attachments/assets/84172c64-beb7-4abd-bd18-e54a2ddb2f75" />
+</p>
+
+> Clicking on the sparkle icon will generate summarization of the documentation briefly about what the code does, with key components and features included.
+
+2. QnA chatbot
+
+- We used langchain4j to implement RAG + LLM for the QnA chatbot. This ensures that the users can ask question about their source code and documentation and get their personalized answer based on the documents fed to the AI.
+
+<p align="center">
+  <img width="1157" height="1022" alt="Image" src="https://github.com/user-attachments/assets/9af47514-5d98-42e4-85e9-4ca5097ab7f0" />
+</p>
+
+> Pressing the Document icon on the left will show our Doc Helper chatbot. Users may upload files, no matter it is the source code or documentation markdown files. The files will be ingested by embedding models and LLM model will retrieve the information and response (RAG) according to the files uploaded. 
+
+### 3. Make Maintenance Easy
+
+1. Show document status
+
+<p align="center">
+  <img width="347" height="22" alt="Image" src="https://github.com/user-attachments/assets/bfe4d930-5cbf-461f-9e9c-e8e8b6162974" />
+</p>
+
+> The document status is shown in the right bottom status bar. `Undocumented` is marked red, `Stale` is marked yellow, while up to date document, `Documented` has no colour.
+
+2. Detect documentation issue
+- This acts like a auto suggest doc updates. (In future implementation, this will be implemented inside the doch cli so it can work with git hook and auto suggest what to add from diffs or PR)
+
+<p align="center">
+  <img width="1917" height="1022" alt="No issues found" src="https://github.com/user-attachments/assets/13e59f55-7aa7-4a71-ae38-788d65356b16" />
+</p>
+
+>  Detecting a clean and inclusive doucmentation will show "No significant issues found.". Let us test what will happen after we deleted some of the descriptions for the functions and methods. 👇
+
+<p align="center">
+  <img width="1917" height="1022" alt="Image" src="https://github.com/user-attachments/assets/ced0ae3d-bb4a-4073-bacb-30251c1520f6" />
+</p>
+
+> AI successfully detected the issues and show to the users, mentioning what are the problems and affected functions and methods.
 
 ## Requirements
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
-
-## Extension Settings
-
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+Unknown for the moment.
 
 ## Known Issues
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+None for the moment.
+
+> To report any issues, open command palette `[Ctrl+Shift+P]`, and type "Doc Helper: Report Issue", you will be guided to the GitHub report issue in Doc Helper repository.
 
 ## Release Notes
 
-Users appreciate release notes as you update your extension.
-
 ### 1.0.0
 
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
-
----
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+Initial release of Doc Helper

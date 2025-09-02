@@ -129,7 +129,7 @@ export class AIService {
 
                ✅ GOOD DOCUMENTATION should have:
                - All major functions/classes are documented
-               - Basic explanations of what each function does
+               - Basic descriptions/explanations of what each function does
                - At least one usage example or basic usage info
                - Clean markdown formatting (doesn't need to be perfect)
                - Documentation generally matches the code
@@ -137,6 +137,7 @@ export class AIService {
                Only flag issues if:
                - Major functions are completely undocumented
                - Documentation is severely outdated or incorrect
+               - No desciprtions at all
                - No examples or usage guidance at all
                - Documentation is completely unreadable
 

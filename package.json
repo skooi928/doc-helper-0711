@@ -67,11 +67,11 @@
     "commands": [
       {
         "command": "doc-helper-0711.initDochRepo",
-        "title": "Initialize DocHelper Repository"
+        "title": "Doc Helper: Initialize DocHelper Repository"
       },
       {
         "command": "doc-helper-0711.refreshFileStatus",
-        "title": "Refresh File Status"
+        "title": "Doc Helper: Refresh File Status"
       },
       {
         "command": "doc-helper-0711.generateDoc",
@@ -94,7 +94,7 @@
       },
       {
         "command": "doc-helper-0711.reportIssue",
-        "title": "Report Issue"
+        "title": "Doc Helper: Report Issue"
       }
     ],
     "commandPalette": [
@@ -128,7 +128,7 @@
         },
         {
           "command": "doc-helper-0711.checkDocIssue",
-          "when": "view == doc-helper-stats && viewItem == documented-md",
+          "when": "view == doc-helper-stats && (viewItem == documented-md || viewItem == outOfDate-md)",
           "group": "inline"
         }
       ]

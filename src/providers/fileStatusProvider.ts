@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import ignore from 'ignore';
 
-export type FileStatus = 'undocumented' | 'outOfDate' | 'documented' | 'documented-md' | 'noSource' | 'independent';
+export type FileStatus = 'undocumented' | 'outOfDate' | 'outOfDate-md' | 'documented' | 'documented-md' | 'noSource' | 'independent';
 
 export class FileStatusItem extends vscode.TreeItem {
   constructor(
@@ -174,7 +174,7 @@ export class FileStatusProvider implements vscode.TreeDataProvider<FileStatusIte
           const commitTime = entry ? Date.parse(entry.timestamp) : undefined;
 
           if (entry && commitTime !== undefined && ((commitTime < codeTime) || (commitTime < docsTime))) {
-            status = 'outOfDate'; // "Stale"
+            status = 'outOfDate-md'; // "Stale"
           }
           else if (entry && entry.documented) {
             status = 'documented-md'; // "Sync"
@@ -189,6 +189,7 @@ export class FileStatusProvider implements vscode.TreeDataProvider<FileStatusIte
       if (
         (element.label === 'Undocumented' && status === 'undocumented') ||
         (element.label === 'Out-of-date'  && status === 'outOfDate')   ||
+        (element.label === 'Out-of-date'  && status === 'outOfDate-md') ||
         (element.label === 'Documented'   && status === 'documented') ||
         (element.label === 'Documented'   && status === 'documented-md') ||
         (element.label === 'No Source'    && status === 'noSource') ||
