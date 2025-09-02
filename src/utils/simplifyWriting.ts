@@ -184,7 +184,7 @@ export async function checkDocumentation(docUri: vscode.Uri) {
         issuesReport += `- Update the documentation to address the identified problems\n`;
         issuesReport += `- Consider regenerating documentation if major issues are found\n`;
       } else {
-        issuesReport += `Your documentation looks good! 🎉\n`;
+        issuesReport += `Your documentation looks good! 🎉\n\n`;
         issuesReport += `💡 To make your documentation even stronger, consider:\n`;
         issuesReport += `- Adding more detailed usage examples (covering edge cases or advanced scenarios).\n`;
         issuesReport += `- Including parameter and return type details for each function.\n`;

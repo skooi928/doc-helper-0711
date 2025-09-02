@@ -235,6 +235,13 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     watchDocState(() => updateStatus(vscode.window.activeTextEditor))
   );
+
+  // Add user report feedback here
+  context.subscriptions.push(
+    vscode.commands.registerCommand('doc-helper-0711.reportIssue', () => {
+      vscode.env.openExternal(vscode.Uri.parse("https://github.com/skooi928/doc-helper-0711/issues/new"));
+    })
+  );
 }
 
 export function deactivate() {}

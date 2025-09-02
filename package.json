@@ -91,6 +91,10 @@
       {
         "command": "doc-helper-0711.openFile",
         "title": "Open File"
+      },
+      {
+        "command": "doc-helper-0711.reportIssue",
+        "title": "Report Issue"
       }
     ],
     "commandPalette": [
@@ -100,7 +104,12 @@
         "category": "Doc Helper"
       },
       {
-        "command": "doc-helper-0711.generateDoc",
+        "command": "doc-helper-0711.refreshFileStatus",
+        "when": "docHelper:dochInitialized == true",
+        "category": "Doc Helper"
+      },
+      {
+        "command": "doc-helper-0711.reportIssue",
         "when": "docHelper:dochInitialized == true",
         "category": "Doc Helper"
       }
