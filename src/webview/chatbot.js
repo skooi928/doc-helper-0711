@@ -192,13 +192,12 @@
         
         // Format code blocks
         if (!isTyping) {
-            const codeBlockRegex = /```([\s\S]*?)```/g;
-            formattedText = text.replace(codeBlockRegex, (match, code) => {
-                return `<pre><code>${escapeHtml(code.trim())}</code></pre>`;
-            });
-            
-            // Format inline code
-            formattedText = formattedText.replace(/`([^`]+)`/g, '<code>$1</code>');
+            // Render markdown to HTML
+            const rawHtml = marked.parse(text);
+            // Sanitize HTML to prevent XSS
+            formattedText = DOMPurify.sanitize(rawHtml);
+
+            // Persist message as raw text (since next time this is called, render and sanitize will run again)
             chatState.messages.push({ sender, text });
             saveState();
         }
@@ -224,13 +223,10 @@
         
         // Format code blocks
         if (!isTyping) {
-            const codeBlockRegex = /```([\s\S]*?)```/g;
-            formattedText = text.replace(codeBlockRegex, (match, code) => {
-                return `<pre><code>${escapeHtml(code.trim())}</code></pre>`;
-            });
-            
-            // Format inline code
-            formattedText = formattedText.replace(/`([^`]+)`/g, '<code>$1</code>');
+            // Render markdown to HTML
+            const rawHtml = marked.parse(text);
+            // Sanitize HTML to prevent XSS
+            formattedText = DOMPurify.sanitize(rawHtml);
         }
 
         messageElement.innerHTML = formattedText;

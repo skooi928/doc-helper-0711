@@ -46,7 +46,7 @@ public class AIConfig {
     }
     return HuggingFaceEmbeddingModel.builder()
         .accessToken(huggingToken)
-        .modelId("sentence-transformers/all-MiniLM-L6-v2")
+        .modelId("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
         .build();
   }
 

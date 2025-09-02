@@ -28,7 +28,8 @@ body {
 }
 
 #uploaded-files.has-files {
-    display: block;
+    display: flex;
+    flex-wrap: wrap;
 }
 
 .uploaded-file {
@@ -47,10 +48,10 @@ body {
 }
 
 .file-name {
-    flex-grow: 1;
-    overflow: hidden;
+    /* overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
+    white-space: nowrap; */
+    margin-right: 4px;
 }
 
 .remove-file {
@@ -94,7 +95,7 @@ body {
 }
 
 .message {
-    padding: 12px 16px;
+    padding: 1px 16px;
     margin-bottom: 16px;
     word-wrap: break-word;
     font-size: 13px;
