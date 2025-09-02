@@ -43,7 +43,7 @@ public class EmbeddingComponent {
     Document doc = Document.from(text, metadata);
 
     EmbeddingStoreIngestor embeddingStoreIngestor = EmbeddingStoreIngestor.builder()
-        .documentSplitter(DocumentSplitters.recursive(600, 100))
+        .documentSplitter(DocumentSplitters.recursive(800, 200))
         .embeddingModel(embeddingModel)
         .embeddingStore(embeddingStore)
         .build();

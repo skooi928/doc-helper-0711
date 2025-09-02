@@ -46,7 +46,7 @@ public class AIConfig {
     }
     return HuggingFaceEmbeddingModel.builder()
         .accessToken(huggingToken)
-        .modelId("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+        .modelId("intfloat/multilingual-e5-base")
         .build();
   }
 
@@ -64,6 +64,8 @@ public class AIConfig {
     var contentRetriever = EmbeddingStoreContentRetriever.builder()
         .embeddingModel(embeddingModel())
         .embeddingStore(embeddingStore())
+        .maxResults(10)
+        .minScore(0.6)
         .build();
     
     var contentInjector = DefaultContentInjector.builder()
@@ -94,6 +96,7 @@ public class AIConfig {
     return GoogleAiGeminiChatModel.builder()
         .apiKey(apiKey)
         .modelName("gemini-2.5-flash")
+        .temperature(0.2)
         .build();
   }
 }
