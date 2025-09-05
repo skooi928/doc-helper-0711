@@ -89,6 +89,16 @@
         "icon": "$(alert)"
       },
       {
+        "command": "doc-helper-0711.searchFile",
+        "title": "Search File",
+        "icon": "$(search)"
+      },
+      {
+        "command": "doc-helper-0711.ignoreFile",
+        "title": "Ignore File",
+        "icon": "$(eye-closed)"
+      },
+      {
         "command": "doc-helper-0711.openFile",
         "title": "Open File"
       },
@@ -118,18 +128,30 @@
       "view/item/context": [
         {
           "command": "doc-helper-0711.generateDoc",
-          "when": "view == doc-helper-stats && viewItem == undocumented",
+          "when": "view == doc-helper-stats && viewItem == Undocumented",
           "group": "inline"
         },
         {
           "command": "doc-helper-0711.summarizeDoc",
-          "when": "view == doc-helper-stats && viewItem == documented-md",
+          "when": "view == doc-helper-stats && viewItem == Documented-md",
           "group": "inline"
         },
         {
           "command": "doc-helper-0711.checkDocIssue",
-          "when": "view == doc-helper-stats && (viewItem == documented-md || viewItem == outOfDate-md)",
+          "when": "view == doc-helper-stats && (viewItem == Documented-md || viewItem == Out-of-Date-md)",
           "group": "inline"
+        },
+        {
+          "command": "doc-helper-0711.ignoreFile",
+          "when": "view == doc-helper-stats && viewItem != category",
+          "group": "inline@0"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "doc-helper-0711.searchFile",
+          "when": "view == doc-helper-stats",
+          "group": "navigation"
         }
       ]
     }

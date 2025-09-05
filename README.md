@@ -22,7 +22,7 @@ To resolve the problems given, we had an idea of making a simple .doch directory
 - Using fixed template, AI automatically generates documentation based on the undocumented source code.
 
 <p align="center">
-  <img alt="Explorer View" src="https://github.com/user-attachments/assets/0293c971-023f-48b3-a76e-948aeb539e3d"/>
+  <img alt="Explorer View" src="https://github.com/user-attachments/assets/11bdd67f-6173-4bdc-bbad-9de42357b5cc"/>
 </p>
 
 > The figure above shows how the dashboard looks like for the users and how they can track the files easily. The files are categorized and shown in a tree view structure. Users can easily open and close whichever file category they wanted to see.

@@ -12,9 +12,17 @@ async function main() {
     case 'check':
       await checkNode(args, root);
       break;
+    case '--help':
+      console.log(`Usage: doch <command> [args]
+        Commands:
+          drift <file1> <file2> ...   Update documentation status for source files
+          check <file1> <file2> ...   Check documentation status for markdown files
+          --help                        Show this help message
+        `);
+      break;
     // …other sub-commands…
     default:
-      console.error(`Unknown subcommand: ${cmd}`);
+      console.error(`Unknown subcommand: ${cmd}\nTry 'doch --help'.`);
       process.exit(1);
   }
 }

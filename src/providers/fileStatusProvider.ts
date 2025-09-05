@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import ignore from 'ignore';
 
-export type FileStatus = 'undocumented' | 'outOfDate' | 'outOfDate-md' | 'documented' | 'documented-md' | 'noSource' | 'independent';
+export type FileStatus = 'Undocumented' | 'Out-of-Date' | 'Out-of-Date-md' | 'Documented' | 'Documented-md' | 'No Source' | 'Independent';
 
 export class FileStatusItem extends vscode.TreeItem {
   constructor(
@@ -79,6 +79,15 @@ export class FileStatusProvider implements vscode.TreeDataProvider<FileStatusIte
       // no .gitignore, skip
     }
 
+    // Ignore the files in .dochignore
+    try {
+      const dochignoreUri = vscode.Uri.joinPath(root, '.dochignore');
+      const bytes = await vscode.workspace.fs.readFile(dochignoreUri);
+      ig.add(Buffer.from(bytes).toString('utf8'));
+    } catch {
+      // no .dochignore, skip
+    }
+
     // Get all relevant files
     const pattern = new vscode.RelativePattern(root, '**/*.{ts,tsx,js,jsx,md}');
     let uris = await vscode.workspace.findFiles(pattern);
@@ -97,7 +106,7 @@ export class FileStatusProvider implements vscode.TreeDataProvider<FileStatusIte
     // For all files, determine their status using same logic as extension.ts
     for (const uri of uris) {
       const rel = vscode.workspace.asRelativePath(uri, false);
-      let status: FileStatus = 'undocumented';
+      let status: FileStatus = 'Undocumented';
 
       if (/\.(ts|js|tsx)$/.test(rel)) {
         // Source file logic - matches extension.ts updateStatus exactly
@@ -123,16 +132,16 @@ export class FileStatusProvider implements vscode.TreeDataProvider<FileStatusIte
         const commitTime = entry ? Date.parse(entry.timestamp) : undefined;
 
         if (!docExists) {
-          status = 'undocumented';
+          status = 'Undocumented';
         }
         else if (entry && commitTime !== undefined && ((commitTime < codeTime) || (commitTime < docTime))) {
-          status = 'outOfDate';
+          status = 'Out-of-Date';
         }
         else if (entry && entry.documented) {
-          status = 'documented';
+          status = 'Documented';
         }
         else {
-          status = 'undocumented'; // "Docs Uncommitted" case
+          status = 'Undocumented'; // "Docs Uncommitted" case
         }
 
       } else if (/\.md$/.test(rel)) {
@@ -159,9 +168,9 @@ export class FileStatusProvider implements vscode.TreeDataProvider<FileStatusIte
         if (!foundExt) {
           // Check if this is under docs/ or completely independent
           if (rel.startsWith('docs/')) {
-            status = 'noSource'; // "No matched source"
+            status = 'No Source'; // "No matched source"
           } else {
-            status = 'independent'; // Independent markdown
+            status = 'Independent'; // Independent markdown
           }
         } else {
           const srcRel = `${base}.${foundExt}`;
@@ -174,26 +183,26 @@ export class FileStatusProvider implements vscode.TreeDataProvider<FileStatusIte
           const commitTime = entry ? Date.parse(entry.timestamp) : undefined;
 
           if (entry && commitTime !== undefined && ((commitTime < codeTime) || (commitTime < docsTime))) {
-            status = 'outOfDate-md'; // "Stale"
+            status = 'Out-of-Date-md'; // "Stale"
           }
           else if (entry && entry.documented) {
-            status = 'documented-md'; // "Sync"
+            status = 'Documented-md'; // "Sync"
           }
           else {
-            status = 'undocumented'; // "Uncommitted Docs"
+            status = 'Undocumented'; // "Uncommitted Docs"
           }
         }
       }
 
       // Only include items matching the current category
       if (
-        (element.label === 'Undocumented' && status === 'undocumented') ||
-        (element.label === 'Out-of-date'  && status === 'outOfDate')   ||
-        (element.label === 'Out-of-date'  && status === 'outOfDate-md') ||
-        (element.label === 'Documented'   && status === 'documented') ||
-        (element.label === 'Documented'   && status === 'documented-md') ||
-        (element.label === 'No Source'    && status === 'noSource') ||
-        (element.label === 'Independent Markdown' && status === 'independent')
+        (element.label === 'Undocumented' && status === 'Undocumented') ||
+        (element.label === 'Out-of-date'  && status === 'Out-of-Date')   ||
+        (element.label === 'Out-of-date'  && status === 'Out-of-Date-md') ||
+        (element.label === 'Documented'   && status === 'Documented') ||
+        (element.label === 'Documented'   && status === 'Documented-md') ||
+        (element.label === 'No Source'    && status === 'No Source') ||
+        (element.label === 'Independent Markdown' && status === 'Independent')
       ) {
         const name = path.basename(uri.fsPath);
         const cmd: vscode.Command = { 
@@ -207,5 +216,16 @@ export class FileStatusProvider implements vscode.TreeDataProvider<FileStatusIte
     }
 
     return items;
+  }
+
+  // Flatten all categories and return every file item
+  async getAllItems(): Promise<FileStatusItem[]> {
+    const topCats = await this.getChildren();
+    const all: FileStatusItem[] = [];
+    for (const cat of topCats) {
+      const children = await this.getChildren(cat);
+      all.push(...children);
+    }
+    return all;
   }
 }

@@ -44,6 +44,63 @@ export function activate(context: vscode.ExtensionContext) {
   const fileStatusProvider = new FileStatusProvider(context);
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider('doc-helper-stats', fileStatusProvider),
+    vscode.commands.registerCommand('doc-helper-0711.searchFile', async () => {
+      const items = await fileStatusProvider.getAllItems();
+      const picks = items.map(item => ({
+        label: item.label,
+        description: vscode.workspace.asRelativePath(item.fileUri!, false),
+        detail: `Status: ${item.status}`, 
+        item
+      }));
+      const selection = await vscode.window.showQuickPick(picks, {
+        placeHolder: 'Filter files by name or path…',
+        matchOnDescription: true,
+        matchOnDetail: true
+      });
+      if (selection?.item.fileUri) {
+        await vscode.window.showTextDocument(selection.item.fileUri);
+      }
+    }),
+    vscode.commands.registerCommand('doc-helper-0711.ignoreFile', async (item: FileStatusItem) => {
+      if (!item.fileUri) {
+        return;
+      }
+      const folders = vscode.workspace.workspaceFolders;
+      if (!folders?.length) {
+        return;
+      }
+      const folder = folders[0];
+      const ignoreUri = vscode.Uri.joinPath(folder.uri, '.dochignore');
+
+      // ensure .dochignore exists, create empty if missing
+      try {
+        await vscode.workspace.fs.stat(ignoreUri);
+      } catch {
+        const header = '# .dochignore';
+        await vscode.workspace.fs.writeFile(ignoreUri, Buffer.from(header, 'utf8'));
+      }
+
+      // read existing .dochignore
+      let content = '';
+      try {
+        const buf = await vscode.workspace.fs.readFile(ignoreUri);
+        content = Buffer.from(buf).toString('utf8');
+      } catch {
+        // should not happen as we just created it
+      }
+
+      // compute normalized relative path
+      const rel = vscode.workspace.asRelativePath(item.fileUri, false).replace(/\\/g, '/');
+      const lines = content.split(/\r?\n/);
+      if (!lines.includes(rel)) {
+        const newContent = content + (content.endsWith('\n') ? '' : '\n') + rel + '\n';
+        await vscode.workspace.fs.writeFile(ignoreUri, Buffer.from(newContent, 'utf8'));
+        vscode.window.showInformationMessage(`Added "${rel}" to .dochignore`);
+      } else {
+        vscode.window.showInformationMessage(`"${rel}" is already in .dochignore`);
+      }
+      fileStatusProvider.refresh();
+    }),
     vscode.commands.registerCommand('doc-helper-0711.refreshFileStatus', () => fileStatusProvider.refresh()),
     vscode.commands.registerCommand('doc-helper-0711.generateDoc', async (item: FileStatusItem) => {
       if (item.fileUri) {
@@ -79,6 +136,13 @@ export function activate(context: vscode.ExtensionContext) {
   docStateWatcher.onDidChange(() => fileStatusProvider.refresh());
   docStateWatcher.onDidDelete(() => fileStatusProvider.refresh());
   context.subscriptions.push(docStateWatcher);
+
+  // Refresh when .dochignore changes
+  const dochIgnoreWatcher = vscode.workspace.createFileSystemWatcher('**/.dochignore');
+  dochIgnoreWatcher.onDidCreate(() => fileStatusProvider.refresh());
+  dochIgnoreWatcher.onDidChange(() => fileStatusProvider.refresh());
+  dochIgnoreWatcher.onDidDelete(() => fileStatusProvider.refresh());
+  context.subscriptions.push(dochIgnoreWatcher);
 
   // Show status of the opened file
   // create status bar item
