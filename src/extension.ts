@@ -250,7 +250,7 @@ export function activate(context: vscode.ExtensionContext) {
 
       if (!foundExt) {
         // no matching source at all
-        text = '$(alert) No matched source';
+        text = '$(alert) No Matched Source';
         bg  = new vscode.ThemeColor('statusBarItem.warningBackground');
       } else {
         const srcRel = `${base}.${foundExt}`;

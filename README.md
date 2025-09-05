@@ -22,7 +22,7 @@ To resolve the problems given, we had an idea of making a simple .doch directory
 - Using fixed template, AI automatically generates documentation based on the undocumented source code.
 
 <p align="center">
-  <img alt="Explorer View" src="https://github.com/user-attachments/assets/11bdd67f-6173-4bdc-bbad-9de42357b5cc"/>
+  <img width="368" height="1020" alt="Explorer View" src="https://github.com/user-attachments/assets/4c948760-5855-4ae1-b026-9acd81258dd9" />
 </p>
 
 > The figure above shows how the dashboard looks like for the users and how they can track the files easily. The files are categorized and shown in a tree view structure. Users can easily open and close whichever file category they wanted to see.
@@ -37,9 +37,7 @@ To resolve the problems given, we had an idea of making a simple .doch directory
 
 1. Summarize documentation (TLDR)
 
-<p align="center">
-  <img width="1917" height="1022" alt="Image" src="https://github.com/user-attachments/assets/84172c64-beb7-4abd-bd18-e54a2ddb2f75" />
-</p>
+<img width="1916" height="1023" alt="Summarize Documentation" src="https://github.com/user-attachments/assets/b78c4b13-c8a9-435b-9ff9-87ec45fbbd84" />
 
 > Clicking on the sparkle icon will generate summarization of the documentation briefly about what the code does, with key components and features included.
 
@@ -48,32 +46,44 @@ To resolve the problems given, we had an idea of making a simple .doch directory
 - We used langchain4j to implement RAG + LLM for the QnA chatbot. This ensures that the users can ask question about their source code and documentation and get their personalized answer based on the documents fed to the AI.
 
 <p align="center">
-  <img width="1157" height="1022" alt="Image" src="https://github.com/user-attachments/assets/9af47514-5d98-42e4-85e9-4ca5097ab7f0" />
+  <img width="1157" height="1022" alt="QnA" src="https://github.com/user-attachments/assets/9af47514-5d98-42e4-85e9-4ca5097ab7f0" />
 </p>
 
 > Pressing the Document icon on the left will show our Doc Helper chatbot. Users may upload files, no matter it is the source code or documentation markdown files. The files will be ingested by embedding models and LLM model will retrieve the information and response (RAG) according to the files uploaded. 
 
 ### 3. Make Maintenance Easy
 
-1. Show document status
+1. Update and Show document status
 
 <p align="center">
-  <img width="347" height="22" alt="Image" src="https://github.com/user-attachments/assets/bfe4d930-5cbf-461f-9e9c-e8e8b6162974" />
+  <img width="822" height="139" alt="Git Hook" src="https://github.com/user-attachments/assets/ea46a4b4-3194-40f7-ace9-378c0a250ad9" />
 </p>
 
-> The document status is shown in the right bottom status bar. `Undocumented` is marked red, `Stale` is marked yellow, while up to date document, `Documented` has no colour.
-
-2. Detect documentation issue
-- This acts like a auto suggest doc updates. (In future implementation, this will be implemented inside the doch cli so it can work with git hook and auto suggest what to add from diffs or PR)
+> While enabling user to track documentation status through file changes after saved, we also track the file status with git. With Git Hook, after commit, doch CLI will be called to update document status.
 
 <p align="center">
-  <img width="1917" height="1022" alt="No issues found" src="https://github.com/user-attachments/assets/13e59f55-7aa7-4a71-ae38-788d65356b16" />
+  <img width="855" height="147" alt="doch CLI" src="https://github.com/user-attachments/assets/2617cd30-81f5-4880-98b6-7e1ad200ba3f" />
+</p>
+
+> Since we have a CLI, typing ‘doch drift fileurl’ in the terminal will have the same effect. We can also type doch --help for more commands. If a non-existing command is prompted, user will be asked to use `doch --help` to check what are the existing commands.
+
+<p align="center">
+  <img width="1001" height="221" alt="Status" src="https://github.com/user-attachments/assets/45b49c2c-c16b-4d29-9f80-21daee8b9e95" />
+</p>
+
+> The document status is shown in the right bottom status bar. `Undocumented`, `Docs Uncommited` and `Uncommited Docs` is marked red, `Stale` and `No Matched Source` is marked yellow, while up to date document, `Documented` and `Sync` has no colour.
+
+2. Detect documentation issue
+- This acts like a auto suggest doc updates. (In future implementation, this will be implemented inside the doch CLI so it can work with git hook and auto suggest what to add from diffs or PR)
+
+<p align="center">
+  <img width="1916" height="1023" alt="No issues found" src="https://github.com/user-attachments/assets/ab54b7a8-547b-4557-a632-57854e10238b" />
 </p>
 
 >  Detecting a clean and inclusive doucmentation will show "No significant issues found.". Let us test what will happen after we deleted some of the descriptions for the functions and methods. 👇
 
 <p align="center">
-  <img width="1917" height="1022" alt="Image" src="https://github.com/user-attachments/assets/ced0ae3d-bb4a-4073-bacb-30251c1520f6" />
+  <img width="1915" height="1023" alt="With issues" src="https://github.com/user-attachments/assets/b4b7a87f-778d-42c0-9090-8c8987b88cfa" />
 </p>
 
 > AI successfully detected the issues and show to the users, mentioning what are the problems and affected functions and methods.
