@@ -108,6 +108,8 @@ In your extension folder (doc-helper-0711):
 - `GEMINI_AI_KEY=your_gemini_key`
 - `HUGGINGFACE_TOKEN=your_huggingface_token`
 
+5. If you prefer local embedding model instead of huggingface api:
+- run this `docker run -p 8081:80 ghcr.io/huggingface/text-embeddings-inference:86-0.4.0 --model-id intfloat/multilingual-e5-base` and use branch 'local-model'.
 
 ## Known Issues
 
