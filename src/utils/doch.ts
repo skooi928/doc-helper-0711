@@ -98,13 +98,6 @@ export async function initDochRepo(folder: vscode.WorkspaceFolder) {
   }
 
   try {
-    await vscode.workspace.fs.stat(base);
-    return;
-  } catch {
-    await vscode.workspace.fs.createDirectory(base);
-  }
-
-  try {
     // Check if they are any existing .doch folder
     await vscode.workspace.fs.stat(base);
     return;
