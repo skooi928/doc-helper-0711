@@ -90,7 +90,22 @@ To resolve the problems given, we had an idea of making a simple .doch directory
 
 ## Requirements
 
-Unknown for the moment.
+1. Build the Extension
+In your extension folder (doc-helper-0711):
+- `npm install`
+- `npm run compile`
+
+2. Link the extension globally in the extension folder:
+- `npm link`
+
+3. Link the extension in your project by typing these commands in your project folder:
+- `npm link doc-helper-0711`
+- `git config core.hooksPath .doch/hooks`
+
+4. Set up environment variables by creating a .env file in the backend project project root:
+- `GEMINI_AI_KEY=your_gemini_key`
+- `HUGGINGFACE_TOKEN=your_huggingface_token`
+
 
 ## Known Issues
 
