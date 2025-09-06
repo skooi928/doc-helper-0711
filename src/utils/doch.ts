@@ -65,7 +65,16 @@ dist/**
 // Check doc drifting
 const HOOK_POST_COMMIT = `#!/usr/bin/env sh
 echo "DocHelper: Updating doc status…"
-CHANGED_SRC=$(git diff-tree --no-commit-id --name-only -r HEAD | grep -E '\\.(ts|js|tsx)$')
+
+# Check if this is the first commit (no parent)
+if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+  # Not the first commit - compare with previous commit
+  CHANGED_SRC=$(git diff-tree --no-commit-id --name-only -r HEAD | grep -E '\\.(ts|js|tsx)$')
+else
+  # First commit - get all files in this commit
+  CHANGED_SRC=$(git diff-tree --no-commit-id --name-only -r --root HEAD | grep -E '\\.(ts|js|tsx)$')
+fi
+
 if [ -n "$CHANGED_SRC" ]; then
   echo "$CHANGED_SRC" | xargs npx doch drift
 fi 
