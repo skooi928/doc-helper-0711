@@ -37,7 +37,9 @@ To resolve the problems given, we had an idea of making a simple .doch directory
 
 1. Summarize documentation (TLDR)
 
-<img width="1916" height="1023" alt="Summarize Documentation" src="https://github.com/user-attachments/assets/b78c4b13-c8a9-435b-9ff9-87ec45fbbd84" />
+<p align="center">
+  <img width="1916" height="1023" alt="Summarize Documentation" src="https://github.com/user-attachments/assets/b78c4b13-c8a9-435b-9ff9-87ec45fbbd84" />
+</p>
 
 > Clicking on the sparkle icon will generate summarization of the documentation briefly about what the code does, with key components and features included.
 
