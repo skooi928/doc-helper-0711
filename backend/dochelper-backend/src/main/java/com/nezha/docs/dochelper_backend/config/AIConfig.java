@@ -9,6 +9,7 @@ import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.huggingface.HuggingFaceEmbeddingModel;
+import dev.langchain4j.model.openai.OpenAiEmbeddingModel;
 import dev.langchain4j.rag.DefaultRetrievalAugmentor;
 import dev.langchain4j.rag.RetrievalAugmentor;
 import dev.langchain4j.rag.content.injector.DefaultContentInjector;
@@ -38,15 +39,20 @@ public class AIConfig {
   /* Embedding files */
   @Bean
   public EmbeddingModel embeddingModel() {
-    // Load huggingface api from .env
-    Dotenv dotenv = Dotenv.load();
-    String huggingToken = dotenv.get("HUGGINGFACE_TOKEN");
-    if (huggingToken == null) {
-      throw new IllegalStateException("API key not set");
-    }
-    return HuggingFaceEmbeddingModel.builder()
-        .accessToken(huggingToken)
-        .modelId("intfloat/multilingual-e5-base")
+    // // Load huggingface api from .env
+    // Dotenv dotenv = Dotenv.load();
+    // String huggingToken = dotenv.get("HUGGINGFACE_TOKEN");
+    // if (huggingToken == null) {
+    //   throw new IllegalStateException("API key not set");
+    // }
+    // return HuggingFaceEmbeddingModel.builder()
+    //     .accessToken(huggingToken)
+    //     .modelId("intfloat/multilingual-e5-base")
+    //     .build();
+    return OpenAiEmbeddingModel.builder()
+        .baseUrl("http://localhost:8081")
+        .apiKey("not-needed")
+        .modelName("intfloat/multilingual-e5-base")
         .build();
   }
 
