@@ -207,3 +207,6 @@ export async function checkDocumentation(docUri: vscode.Uri) {
     vscode.window.showErrorMessage(`Failed to check documentation: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
+
+// Todo: inline suggestion
+// Todo: detect missing function instantly
