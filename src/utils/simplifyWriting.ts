@@ -36,9 +36,11 @@ export async function generateDocumentation(sourceUri: vscode.Uri) {
         throw new Error('No workspace folder found');
       }
 
+      const config = vscode.workspace.getConfiguration('docHelper');
+      const docsDirectory = config.get<string>('saveDirectory') || 'docs/';
       const rel = vscode.workspace.asRelativePath(sourceUri, false);
       const docRel = rel
-        .replace(/^src[\/\\]/, 'docs/')
+        .replace(/^src[\/\\]/, docsDirectory)
         .replace(/\.(ts|js|tsx|jsx)$/, '.md');
       
       const docUri = vscode.Uri.joinPath(folders[0].uri, ...docRel.split(/[\\/]/));
@@ -124,11 +126,12 @@ export async function checkDocumentation(docUri: vscode.Uri) {
         throw new Error('No workspace folder found');
       }
 
+      const config = vscode.workspace.getConfiguration('docHelper');
+      const docsDirectory = config.get<string>('saveDirectory') || 'docs/';
       const docRel = vscode.workspace.asRelativePath(docUri, false);
-      
       // Convert docs path back to source path
       const base = docRel
-        .replace(/^docs[\/\\]/, 'src/')
+        .replace(new RegExp('^' + docsDirectory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), 'src/')
         .replace(/\.md$/, '');
 
       // Try to find the corresponding source file

@@ -103,6 +103,9 @@ export class FileStatusProvider implements vscode.TreeDataProvider<FileStatusIte
     const state = await loadState();
     const items: FileStatusItem[] = [];
 
+    const config = vscode.workspace.getConfiguration('docHelper');
+    const docsDirectory = config.get<string>('saveDirectory') || 'docs/';
+
     // For all files, determine their status using same logic as extension.ts
     for (const uri of uris) {
       const rel = vscode.workspace.asRelativePath(uri, false);
@@ -111,7 +114,7 @@ export class FileStatusProvider implements vscode.TreeDataProvider<FileStatusIte
       if (/\.(ts|js|tsx)$/.test(rel)) {
         // Source file logic - matches extension.ts updateStatus exactly
         const docRel = rel
-          .replace(/^src[\/\\]/, 'docs/')
+          .replace(/^src[\/\\]/, docsDirectory)
           .replace(/\.(ts|js|tsx)$/, '.md');
         const docUri = vscode.Uri.joinPath(root, ...docRel.split(/[\\/]/));
         
@@ -147,7 +150,7 @@ export class FileStatusProvider implements vscode.TreeDataProvider<FileStatusIte
       } else if (/\.md$/.test(rel)) {
         // Markdown file logic - matches extension.ts updateStatus exactly
         const base = rel
-          .replace(/^docs[\/\\]/, 'src/')
+          .replace(new RegExp('^' + docsDirectory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), 'src/')
           .replace(/\.md$/, '');
 
         const exts = ['ts', 'js', 'tsx'];
@@ -167,7 +170,7 @@ export class FileStatusProvider implements vscode.TreeDataProvider<FileStatusIte
 
         if (!foundExt) {
           // Check if this is under docs/ or completely independent
-          if (rel.startsWith('docs/')) {
+          if (rel.startsWith(docsDirectory)) {
             status = 'No Source'; // "No matched source"
           } else {
             status = 'Independent'; // Independent markdown
