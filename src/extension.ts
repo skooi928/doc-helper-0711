@@ -2,7 +2,9 @@ import * as vscode from 'vscode';
 import { initDochRepo, updateDochContext, watchDocState } from './utils/doch';
 import { ChatbotViewProvider } from './providers/chatbotViewProvider'; 
 import { FileStatusItem, FileStatusProvider } from './providers/fileStatusProvider';
+import { registerFileLinkingProviders } from './providers/fileLinkingProvider';
 import { generateDocumentation, summarizeDocumentation, checkDocumentation } from './utils/simplifyWriting';
+import { register } from 'module';
 
 export function activate(context: vscode.ExtensionContext) {
   // Update on start
@@ -125,9 +127,9 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Refresh on any source/docs change
   const codeWatcher = vscode.workspace.createFileSystemWatcher('**/*.{ts,js,tsx,jsx,md}');
-  codeWatcher.onDidCreate(() => fileStatusProvider.refresh());
-  codeWatcher.onDidChange(() => fileStatusProvider.refresh());
-  codeWatcher.onDidDelete(() => fileStatusProvider.refresh());
+  codeWatcher.onDidCreate(() => {fileStatusProvider.refresh(); registerFileLinkingProviders(context);});
+  codeWatcher.onDidChange(() => {fileStatusProvider.refresh(); registerFileLinkingProviders(context);});
+  codeWatcher.onDidDelete(() => {fileStatusProvider.refresh(); registerFileLinkingProviders(context);});
   context.subscriptions.push(codeWatcher);
 
   // Refresh when doc-state.json changes
@@ -143,6 +145,79 @@ export function activate(context: vscode.ExtensionContext) {
   dochIgnoreWatcher.onDidChange(() => fileStatusProvider.refresh());
   dochIgnoreWatcher.onDidDelete(() => fileStatusProvider.refresh());
   context.subscriptions.push(dochIgnoreWatcher);
+
+  // Command to open respective docs from code file or vice versa
+  const openRespectiveDocs = vscode.commands.registerCommand('doc-helper-0711.openRespectiveDocs', async (uri?: vscode.Uri) => {
+    // get active editor document URI
+    const activeUri = uri ?? vscode.window.activeTextEditor?.document.uri;
+    if (!activeUri) {
+      vscode.window.showInformationMessage('No active file to open respective docs.');
+      return;
+    }
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders?.length) {
+      vscode.window.showInformationMessage('Open a folder to use Doc Helper.');
+      return;
+    }
+    const folder = workspaceFolders[0];
+    const relPath = vscode.workspace.asRelativePath(activeUri, false).replace(/\\/g, '/');
+
+    // code → docs
+    if (/\.(ts|js|tsx|jsx)$/.test(relPath)) {
+      const docRel = relPath
+        .replace(/^src\//, 'docs/')
+        .replace(/\.(ts|js|tsx|jsx)$/, '.md');
+      const docUri = vscode.Uri.joinPath(folder.uri, ...docRel.split('/'));
+      try {
+        await vscode.workspace.fs.stat(docUri);
+        await vscode.window.showTextDocument(docUri, { viewColumn: vscode.ViewColumn.Beside, preview: false });
+      } catch {
+        const choice = await vscode.window.showInformationMessage(
+          `Documentation not found: ${docRel}. Create a new one?`,
+          'Generate AI Documentation', 'Cancel'
+        );
+        if (choice === 'Generate AI Documentation') {
+          try {
+            await generateDocumentation(activeUri);
+            await vscode.window.showTextDocument(docUri, { viewColumn: vscode.ViewColumn.Beside, preview: false });
+          } catch (error: any) {
+            vscode.window.showErrorMessage(`Failed to generate documentation: ${error instanceof Error ? error.message : String(error)}`);
+          }
+        }
+      }
+    }
+    // docs → code
+    else if (/\.md$/.test(relPath)) {
+      const base = relPath
+        .replace(/^docs\//, 'src/')
+        .replace(/\.md$/, '');
+      const exts = ['ts', 'js', 'tsx', 'jsx'];
+      let found = false;
+      for (const ext of exts) {
+        const codeRel = `${base}.${ext}`;
+        const codeUri = vscode.Uri.joinPath(folder.uri, ...codeRel.split('/'));
+        try {
+          await vscode.workspace.fs.stat(codeUri);
+          await vscode.window.showTextDocument(codeUri, { viewColumn: vscode.ViewColumn.Beside, preview: false });
+          found = true;
+          break;
+        } catch {
+          // not found
+        }
+      }
+      if (!found) {
+        vscode.window.showWarningMessage(`Source file not found for documentation: ${relPath}`);
+      }
+    }
+    // neither code nor docs
+    else {
+      vscode.window.showInformationMessage('Open a code or markdown file to use this command.');
+    }
+  });
+  context.subscriptions.push(openRespectiveDocs);
+
+  // Linking the code and docs function
+  registerFileLinkingProviders(context);
 
   // Show status of the opened file
   // create status bar item

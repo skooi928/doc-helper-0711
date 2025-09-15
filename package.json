@@ -18,6 +18,13 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "keybindings": [
+      {
+        "key": "ctrl+l",
+        "command": "doc-helper-0711.toggleLink",
+        "when": "editorTextFocus && editorLangId == markdown"
+      }
+    ],
     "viewsContainers": {
       "activitybar": [
         {
@@ -103,6 +110,15 @@
         "title": "Open File"
       },
       {
+        "command": "doc-helper-0711.openRespectiveDocs",
+        "title": "Open Respective Code/Docs",
+        "icon": "$(book)"
+      },
+      {
+        "command": "doc-helper-0711.toggleLink",
+        "title": "Toggle Link Mode"
+      },
+      {
         "command": "doc-helper-0711.reportIssue",
         "title": "Doc Helper: Report Issue"
       }
@@ -152,6 +168,34 @@
           "command": "doc-helper-0711.searchFile",
           "when": "view == doc-helper-stats",
           "group": "navigation"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "doc-helper-0711.openRespectiveDocs",
+          "when": "docHelper:dochInitialized == true",
+          "group": "navigation@0"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "doc-helper-0711.toggleLink",
+          "when": "resourceLangId == markdown && docHelper:dochInitialized == true",
+          "group": "DocHelper@1"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "doc-helper-0711.toggleLink",
+          "when": "resourceLangId == markdown && docHelper:dochInitialized == true",
+          "group": "DocHelper@1"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "doc-helper-0711.toggleLink",
+          "when": "resourceLangId == markdown && docHelper:dochInitialized == true",
+          "group": "DocHelper@1"
         }
       ]
     }
