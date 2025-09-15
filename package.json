@@ -198,6 +198,26 @@
           "group": "DocHelper@1"
         }
       ]
+    },
+    "configuration": {
+        "title": "Doc Helper",
+        "properties": {
+          "docHelper.apiEndpoint": {
+            "type": "string",
+            "default": "http://localhost:8080",
+            "description": "Endpoint URL for the Doc Helper backend server."
+          },
+          "docHelper.saveDirectory": {
+            "type": "string",
+            "default": "docs/",
+            "description": "Default folder path to save all your documentations"
+          },
+          "docHelper.hyperlinkUnderline": {
+            "type": "boolean",
+            "default": false,
+            "description": "Enable underline for hyperlinking between code and documentation files."
+          }
+        }
     }
   },
   "bin": {

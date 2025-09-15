@@ -127,9 +127,9 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Refresh on any source/docs change
   const codeWatcher = vscode.workspace.createFileSystemWatcher('**/*.{ts,js,tsx,jsx,md}');
-  codeWatcher.onDidCreate(() => {fileStatusProvider.refresh(); registerFileLinkingProviders(context);});
-  codeWatcher.onDidChange(() => {fileStatusProvider.refresh(); registerFileLinkingProviders(context);});
-  codeWatcher.onDidDelete(() => {fileStatusProvider.refresh(); registerFileLinkingProviders(context);});
+  codeWatcher.onDidCreate(() => fileStatusProvider.refresh());
+  codeWatcher.onDidChange(() => fileStatusProvider.refresh());
+  codeWatcher.onDidDelete(() => fileStatusProvider.refresh());
   context.subscriptions.push(codeWatcher);
 
   // Refresh when doc-state.json changes
@@ -145,6 +145,9 @@ export function activate(context: vscode.ExtensionContext) {
   dochIgnoreWatcher.onDidChange(() => fileStatusProvider.refresh());
   dochIgnoreWatcher.onDidDelete(() => fileStatusProvider.refresh());
   context.subscriptions.push(dochIgnoreWatcher);
+
+  const config = vscode.workspace.getConfiguration('docHelper');
+  const docsDirectory = config.get<string>('saveDirectory') || 'docs/';
 
   // Command to open respective docs from code file or vice versa
   const openRespectiveDocs = vscode.commands.registerCommand('doc-helper-0711.openRespectiveDocs', async (uri?: vscode.Uri) => {
@@ -165,7 +168,7 @@ export function activate(context: vscode.ExtensionContext) {
     // code → docs
     if (/\.(ts|js|tsx|jsx)$/.test(relPath)) {
       const docRel = relPath
-        .replace(/^src\//, 'docs/')
+        .replace(/^src\//, docsDirectory)
         .replace(/\.(ts|js|tsx|jsx)$/, '.md');
       const docUri = vscode.Uri.joinPath(folder.uri, ...docRel.split('/'));
       try {
@@ -189,7 +192,7 @@ export function activate(context: vscode.ExtensionContext) {
     // docs → code
     else if (/\.md$/.test(relPath)) {
       const base = relPath
-        .replace(/^docs\//, 'src/')
+        .replace(new RegExp('^' + docsDirectory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), 'src/')
         .replace(/\.md$/, '');
       const exts = ['ts', 'js', 'tsx', 'jsx'];
       let found = false;
@@ -250,6 +253,9 @@ export function activate(context: vscode.ExtensionContext) {
       return;
     }
 
+    const config = vscode.workspace.getConfiguration('docHelper');
+    const docsDirectory = config.get<string>('saveDirectory') || 'docs/';
+
     const uri = editor.document.uri;
     const rel = vscode.workspace.asRelativePath(uri, false);
     const folders = vscode.workspace.workspaceFolders;
@@ -265,7 +271,7 @@ export function activate(context: vscode.ExtensionContext) {
     if (/\.(ts|js|tsx)$/.test(rel)) {
       // code file, check doc exists?
       const docRel = rel
-        .replace(/^src[\/\\]/, 'docs/')
+        .replace(/^src[\/\\]/, docsDirectory)
         .replace(/\.(ts|js|tsx)$/, '.md');
       const docUri = vscode.Uri.joinPath(folder.uri, ...docRel.split(/[\\/]/));
       let docExists = false;
@@ -305,7 +311,7 @@ export function activate(context: vscode.ExtensionContext) {
     } else if (/\.md$/.test(rel)) {
       // markdown file, try all source extensions
       const base = rel
-        .replace(/^docs[\/\\]/, 'src/')
+        .replace(new RegExp('^' + docsDirectory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), 'src/')
         .replace(/\.md$/, '');
 
       const exts = ['ts', 'js', 'tsx'];

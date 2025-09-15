@@ -1,8 +1,13 @@
+import * as vscode from 'vscode';
+
 export interface ChatResponse {
     response: string;
 }
 
 export async function uploadDocuments(files: { name: string; content: string }[]) {
+  const config = vscode.workspace.getConfiguration('docHelper');
+  const baseUrl = config.get<string>('apiEndpoint');
+
   const form = new FormData();
   for (const f of files) {
     // determine MIME type based on file extension
@@ -23,17 +28,20 @@ export async function uploadDocuments(files: { name: string; content: string }[]
     }
     form.append('files', new Blob([f.content], { type: mimeType }), f.name);
   }
-  await fetch('http://localhost:8080/api/documents/upload', { method: 'POST', body: form });
+  await fetch(`${baseUrl}/api/documents/upload`, { method: 'POST', body: form });
 }
 
 export async function askDocumentationQuestion(userId: number, question: string, files?:{name:string;content:string}[]): Promise<string> {
+    const config = vscode.workspace.getConfiguration('docHelper');
+    const baseUrl = config.get<string>('apiEndpoint');
+
     // If there is any file to upload, do it first
     if (files && files.length) {
         await uploadDocuments(files);
     }
 
     try {
-        const response = await fetch('http://localhost:8080/api/qnachat', {
+        const response = await fetch(`${baseUrl}/api/qnachat`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'

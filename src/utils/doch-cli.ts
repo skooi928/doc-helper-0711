@@ -1,5 +1,6 @@
 import { promises as fs } from 'fs';
 import * as path from 'path';
+import * as vscode from 'vscode';
 
 export interface DocState {
   [sourceRel: string]: {
@@ -34,8 +35,12 @@ async function saveDocState(root: string, state: DocState) {
 
 export async function driftNode(files: string[], root: string) {
   const state = await loadDocState(root);
+
+  const config = vscode.workspace.getConfiguration('docHelper');
+  const docsDirectory = config.get<string>('saveDirectory') || 'docs/';
+
   for (const rel of files) {
-    const docRel = rel.replace(/^src[\/\\]/, 'docs/').replace(/\.(ts|js|tsx)$/, '.md');
+    const docRel = rel.replace(/^src[\/\\]/, docsDirectory).replace(/\.(ts|js|tsx)$/, '.md');
     const fullDoc = path.join(root, docRel);
     let documented = true;
     try {
@@ -51,8 +56,12 @@ export async function driftNode(files: string[], root: string) {
 
 export async function checkNode(files: string[], root: string) {
   const state = await loadDocState(root);
+
+  const config = vscode.workspace.getConfiguration('docHelper');
+  const docsDirectory = config.get<string>('saveDirectory') || 'docs/';
+  
   for (const docRel of files) {
-    const srcRel = docRel.replace(/^docs[\/\\]/, 'src/').replace(/\.md$/, '.ts');
+    const srcRel = docRel.replace(new RegExp('^' + docsDirectory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), 'src/').replace(/\.md$/, '.ts');
     const fullSrc = path.join(root, srcRel);
     let documented = true;
     try {

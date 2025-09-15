@@ -1,4 +1,4 @@
-import { link } from 'fs/promises';
+import { on } from 'events';
 import * as vscode from 'vscode';
 
 export function registerFileLinkingProviders(context: vscode.ExtensionContext) {
@@ -7,8 +7,9 @@ export function registerFileLinkingProviders(context: vscode.ExtensionContext) {
     textDecoration: 'none'
   });
 
+  const config = vscode.workspace.getConfiguration('docHelper');
   // toggle state for link underlines
-  let linksHidden = true; // Todo: changed to settings later
+  let linksHidden = !(config.get<boolean>('hyperlinkUnderline'));
 
   // hide all link underlines in the given Markdown editor
   async function hideUnderlines(editor?: vscode.TextEditor) {
@@ -39,9 +40,11 @@ export function registerFileLinkingProviders(context: vscode.ExtensionContext) {
       const text = doc.getText();
       const links: vscode.DocumentLink[] = [];
 
+      const docsDirectory = config.get<string>('saveDirectory', 'docs/');
+
       const docPath = vscode.workspace.asRelativePath(doc.uri);
-      // Only process docs/*.md files
-      if (!docPath.startsWith('docs/') || !docPath.endsWith('.md')) {
+      // Only process saveDirectory/*.md files
+      if (!docPath.startsWith(docsDirectory) || !docPath.endsWith('.md')) {
         return links;
       }
 
@@ -52,7 +55,7 @@ export function registerFileLinkingProviders(context: vscode.ExtensionContext) {
 
       // Get corresponding source file path
       const sourceBase = docPath
-        .replace(/^docs\//, 'src/')
+        .replace(new RegExp('^' + docsDirectory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), 'src/')
         .replace(/\.md$/, '');
 
       // Try to find the corresponding source file
@@ -164,12 +167,24 @@ export function registerFileLinkingProviders(context: vscode.ExtensionContext) {
       if (!editor || editor.document.languageId !== 'markdown') {
         return;
       }
-      linksHidden = !linksHidden;
-      if (linksHidden) {
-        hideUnderlines(editor);
-      } else {
-        showUnderlines(editor);
-      }
+      config.update('hyperlinkUnderline', linksHidden, vscode.ConfigurationTarget.Global);
     })
   );
+
+  // listen to configuration changes
+  vscode.workspace.onDidChangeConfiguration(e => {
+    if (e.affectsConfiguration("docHelper.hyperlinkUnderline")) {
+        const config = vscode.workspace.getConfiguration('docHelper');
+        linksHidden = !(config.get<boolean>('hyperlinkUnderline'));
+
+        const editor = vscode.window.activeTextEditor;
+        if (editor && editor.document.languageId === 'markdown') {
+            if (linksHidden) {
+                hideUnderlines(editor);
+            } else {
+                showUnderlines(editor);
+            }
+        }
+    }
+});
 }
