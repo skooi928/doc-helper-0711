@@ -3,8 +3,7 @@ import { initDochRepo, updateDochContext, watchDocState } from './utils/doch';
 import { ChatbotViewProvider } from './providers/chatbotViewProvider'; 
 import { FileStatusItem, FileStatusProvider } from './providers/fileStatusProvider';
 import { registerFileLinkingProviders } from './providers/fileLinkingProvider';
-import { generateDocumentation, summarizeDocumentation, checkDocumentation } from './utils/simplifyWriting';
-import { register } from 'module';
+import { generateDocumentation, summarizeDocumentation, checkDocumentation, registerInlineSuggestionProvider } from './utils/simplifyWriting';
 
 export function activate(context: vscode.ExtensionContext) {
   // Update on start
@@ -221,6 +220,35 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Linking the code and docs function
   registerFileLinkingProviders(context);
+
+  let inlineSuggestionDisposable: vscode.Disposable | undefined;
+  const ghostEnabled = config.get<boolean>('enableGhostSuggestion', true);
+  // Inline suggestion (ghost text) for doc writing
+  if (ghostEnabled) {
+    inlineSuggestionDisposable = registerInlineSuggestionProvider(context);
+  }
+
+  // Listen to configuration changes
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration(e => {
+      if (e.affectsConfiguration('docHelper.enableGhostSuggestion')) {
+        const newConfig = vscode.workspace.getConfiguration('docHelper');
+        const enabled = newConfig.get<boolean>('enableGhostSuggestion', true);
+        if (enabled && !inlineSuggestionDisposable) {
+          inlineSuggestionDisposable = registerInlineSuggestionProvider(context);
+        } else if (!enabled && inlineSuggestionDisposable) {
+          inlineSuggestionDisposable.dispose();
+          inlineSuggestionDisposable = undefined;
+        }
+      }
+    }),
+    vscode.commands.registerCommand('doc-helper-0711.toggleGhostSuggestion', async () => {
+      const config = vscode.workspace.getConfiguration('docHelper');
+      const current = config.get<boolean>('enableGhostSuggestion', true);
+      await config.update('enableGhostSuggestion', !current, vscode.ConfigurationTarget.Global);
+      vscode.window.showInformationMessage(`Ghost suggestion is now ${!current ? 'enabled' : 'disabled'}.`);
+    })
+  );
 
   // Show status of the opened file
   // create status bar item

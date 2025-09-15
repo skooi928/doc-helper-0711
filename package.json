@@ -20,8 +20,13 @@
   "contributes": {
     "keybindings": [
       {
-        "key": "ctrl+l",
+        "key": "ctrl+alt+l",
         "command": "doc-helper-0711.toggleLink",
+        "when": "editorTextFocus && editorLangId == markdown"
+      },
+      {
+        "key": "ctrl+alt+g",
+        "command": "doc-helper-0711.toggleGhostSuggestion",
         "when": "editorTextFocus && editorLangId == markdown"
       }
     ],
@@ -119,6 +124,10 @@
         "title": "Toggle Link Mode"
       },
       {
+        "command": "doc-helper-0711.toggleGhostSuggestion",
+        "title": "Toggle Ghost Suggestion"
+      },
+      {
         "command": "doc-helper-0711.reportIssue",
         "title": "Doc Helper: Report Issue"
       }
@@ -196,6 +205,11 @@
           "command": "doc-helper-0711.toggleLink",
           "when": "resourceLangId == markdown && docHelper:dochInitialized == true",
           "group": "DocHelper@1"
+        },
+        {
+          "command": "doc-helper-0711.toggleGhostSuggestion",
+          "when": "docHelper:dochInitialized == true",
+          "group": "DocHelper@2"
         }
       ]
     },
@@ -205,7 +219,7 @@
           "docHelper.apiEndpoint": {
             "type": "string",
             "default": "http://localhost:8080",
-            "description": "Endpoint URL for the Doc Helper backend server."
+            "description": "Endpoint URL for the Doc Helper backend server"
           },
           "docHelper.saveDirectory": {
             "type": "string",
@@ -215,7 +229,12 @@
           "docHelper.hyperlinkUnderline": {
             "type": "boolean",
             "default": false,
-            "description": "Enable underline for hyperlinking between code and documentation files."
+            "description": "Enable underline for hyperlinking between code and documentation files"
+          },
+          "docHelper.enableGhostSuggestion": {
+            "type": "boolean",
+            "default": true,
+            "description": "Enable ghost text suggestions for documentation writing"
           }
         }
     }
