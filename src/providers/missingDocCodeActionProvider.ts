@@ -137,6 +137,24 @@ function updateDiagnostics(
   const diagnostics: vscode.Diagnostic[] = missingSymbols.map(sym => {
     // Get the diagnostic position using our helper function; use a zero-length range at that position.
     const pos = getInsertionPositionForMissingSymbol(sym, orderedSourceSymbols, mdSymbols, doc);
+      // If position is at or beyond the end of the document, adjust to last mdSymbol.range.end
+      if (pos.line >= doc.lineCount) {
+        console.log("Position beyond document end, adjusting...");
+        // Find matched symbols (those whose name does not appear in any heading)
+        const matchedSymbols = mdSymbols.filter(mdSym => {
+          return orderedSourceSymbols.some(sourceSym => (mdSym.name.trim().toLowerCase()).includes(sourceSym.name.trim().toLowerCase()));
+        });
+        const lastMdSymbol = matchedSymbols.length > 0 ? matchedSymbols[matchedSymbols.length - 1] : null;
+        if (lastMdSymbol) {
+          console.log(`Last markdown symbol found: ${lastMdSymbol.name} at line ${lastMdSymbol.range.start.line}`);
+          return new vscode.Diagnostic(
+            doc.lineAt(lastMdSymbol.range.end).range,
+            `Missing documentation for function '${sym.name}'`,
+            vscode.DiagnosticSeverity.Warning
+          );
+        }
+      }
+    console.log(`Inserting diagnostic for missing symbol '${sym.name}' at line ${pos.line}, character ${pos.character}`);
     const lineRange = doc.lineAt(pos).range;
     const message = `Missing documentation for function '${sym.name}'`;
     // Create a diagnostic at the determined position.
@@ -204,8 +222,8 @@ export class MissingDocCodeActionProvider implements vscode.CodeActionProvider {
     // Sort user-defined symbols by their order in the source file
     userDefinedSymbols = userDefinedSymbols.sort((a, b) => a.range.start.line - b.range.start.line);
 
-    // Extract headings from markdown using the symbol provider
-    const mdSymbols = await extractMarkdownSymbols(document);
+    // Extract headings and sort from markdown using the symbol provider
+    const mdSymbols = (await extractMarkdownSymbols(document)).sort((a, b) => a.range.start.line - b.range.start.line);
     
     // Find missing symbols (those whose name does not appear in any heading)
     const missingSymbols = userDefinedSymbols.filter(sym => {
