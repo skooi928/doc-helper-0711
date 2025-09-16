@@ -3,6 +3,7 @@ import { initDochRepo, updateDochContext, watchDocState } from './utils/doch';
 import { ChatbotViewProvider } from './providers/chatbotViewProvider'; 
 import { FileStatusItem, FileStatusProvider } from './providers/fileStatusProvider';
 import { registerFileLinkingProviders } from './providers/fileLinkingProvider';
+import { registerMissingDocCodeActions } from './providers/missingDocCodeActionProvider';
 import { generateDocumentation, summarizeDocumentation, checkDocumentation, registerInlineSuggestionProvider } from './utils/simplifyWriting';
 
 export function activate(context: vscode.ExtensionContext) {
@@ -249,6 +250,9 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.window.showInformationMessage(`Ghost suggestion is now ${!current ? 'enabled' : 'disabled'}.`);
     })
   );
+
+  // Register the missing doc code action provider
+  registerMissingDocCodeActions(context);
 
   // Show status of the opened file
   // create status bar item

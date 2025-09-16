@@ -84,15 +84,15 @@ export function registerFileLinkingProviders(context: vscode.ExtensionContext) {
           sourceUri
         ) || [];
 
-        // Recursively extract all symbols (including nested ones)
+        // Recursively extract all symbols (just top-level for now)
         const flattenSymbols = (syms: vscode.DocumentSymbol[]): vscode.DocumentSymbol[] => {
           const result: vscode.DocumentSymbol[] = [];
           for (const sym of syms) {
             result.push(sym);
-            if (sym.children) {
-              // recursively flatten children
-              result.push(...flattenSymbols(sym.children));
-            }
+            // if (sym.children) {
+            //   // recursively flatten children
+            //   result.push(...flattenSymbols(sym.children));
+            // }
           }
           return result;
         };
@@ -101,12 +101,12 @@ export function registerFileLinkingProviders(context: vscode.ExtensionContext) {
 
         // Create links for functions and classes
         for (const sym of allSymbols) {
-          if (sym.kind === vscode.SymbolKind.Function || 
-              sym.kind === vscode.SymbolKind.Class ||
-              sym.kind === vscode.SymbolKind.Method ||
-              sym.kind === vscode.SymbolKind.Interface ||
+          if (sym.kind === vscode.SymbolKind.Function
+              // sym.kind === vscode.SymbolKind.Class ||
+              // sym.kind === vscode.SymbolKind.Method ||
+              // sym.kind === vscode.SymbolKind.Interface
               // sym.kind === vscode.SymbolKind.Variable || (Variable can be too common)
-              sym.kind === vscode.SymbolKind.Constant) {
+            ) {
             
             // Escape special regex characters in symbol name
             const escapedName = sym.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
