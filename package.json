@@ -128,6 +128,14 @@
         "title": "Toggle Ghost Suggestion"
       },
       {
+        "command": "doc-helper-0711.insertMissingDocs",
+        "title": "Insert Missing Documentation Sections"
+      },
+      {
+        "command": "doc-helper-0711.ignoreMissingDocs",
+        "title": "Ignore Documentation Warnings"
+      },
+      {
         "command": "doc-helper-0711.reportIssue",
         "title": "Doc Helper: Report Issue"
       }
@@ -220,6 +228,11 @@
             "type": "string",
             "default": "http://localhost:8080",
             "description": "Endpoint URL for the Doc Helper backend server"
+          },
+          "docHelper.geminiApiKey": {
+            "type": "string",
+            "default": "",
+            "description": "Key in your own Gemini API Key to access QnA chatbot service"
           },
           "docHelper.saveDirectory": {
             "type": "string",
