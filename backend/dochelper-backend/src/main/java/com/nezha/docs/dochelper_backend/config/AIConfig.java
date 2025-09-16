@@ -8,7 +8,7 @@ import java.util.List;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel;
 import dev.langchain4j.model.embedding.EmbeddingModel;
-import dev.langchain4j.model.huggingface.HuggingFaceEmbeddingModel;
+// import dev.langchain4j.model.huggingface.HuggingFaceEmbeddingModel;
 import dev.langchain4j.model.openai.OpenAiEmbeddingModel;
 import dev.langchain4j.rag.DefaultRetrievalAugmentor;
 import dev.langchain4j.rag.RetrievalAugmentor;
