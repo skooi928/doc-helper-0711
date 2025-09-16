@@ -76,7 +76,7 @@ function flattenSymbols(symbols: vscode.DocumentSymbol[]): vscode.DocumentSymbol
 }
 
 // Extract markdown symbols
-async function extractMarkdownSymbols(doc: vscode.TextDocument): Promise<string[]> {
+async function extractMarkdownSymbols(doc: vscode.TextDocument): Promise<vscode.DocumentSymbol[]> {
     const symbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[]>(
         'vscode.executeDocumentSymbolProvider', doc.uri
     );
@@ -84,9 +84,7 @@ async function extractMarkdownSymbols(doc: vscode.TextDocument): Promise<string[
         return [];
     }
 
-    // Flatten and get the symbol names.
-    const allSymbols = flattenSymbols(symbols);
-    return allSymbols.map(sym => sym.name);
+    return flattenSymbols(symbols);
 }
 
 async function symFromLibrary(sym: vscode.DocumentSymbol, sourceUri: vscode.Uri): Promise<boolean> {
@@ -107,14 +105,45 @@ async function symFromLibrary(sym: vscode.DocumentSymbol, sourceUri: vscode.Uri)
   }
 }
 
+function getInsertionPositionForMissingSymbol(
+  missingSymbol: vscode.DocumentSymbol,
+  sourceSymbols: vscode.DocumentSymbol[],
+  mdSymbols: vscode.DocumentSymbol[],
+  doc: vscode.TextDocument
+): vscode.Position {
+  // Find the index of the missing symbol in the source symbols.
+  const idx = sourceSymbols.findIndex(sym => sym.name.trim().toLowerCase().includes(missingSymbol.name.trim().toLowerCase()));
+  // Look for the next symbol in the source symbols that has an equivalent markdown heading.
+  for (let i = idx + 1; i < sourceSymbols.length; i++) {
+    const nextSymbolName = sourceSymbols[i].name.trim().toLowerCase();
+    // Use the markdown symbols from the provider (which may already be in order).
+    const mdMatch = mdSymbols.find(mdSym => mdSym.name.trim().toLowerCase().includes(nextSymbolName));
+    if (mdMatch) {
+      // Return the position of the markdown symbol (usually the start of the heading).
+      return mdMatch.range.start;
+    }
+  }
+  // If no matching next symbol is found, return the end of the document.
+  return new vscode.Position(doc.lineCount, 0);
+}
+
 // Call this function to update diagnostics from the missing symbols
-function updateDiagnostics(doc: vscode.TextDocument, missingSymbols: vscode.DocumentSymbol[]) {
+function updateDiagnostics(
+  doc: vscode.TextDocument,
+  missingSymbols: vscode.DocumentSymbol[],
+  orderedSourceSymbols: vscode.DocumentSymbol[],
+  mdSymbols: vscode.DocumentSymbol[]
+) {
   const diagnostics: vscode.Diagnostic[] = missingSymbols.map(sym => {
+    // Get the diagnostic position using our helper function; use a zero-length range at that position.
+    const pos = getInsertionPositionForMissingSymbol(sym, orderedSourceSymbols, mdSymbols, doc);
+    const lineRange = doc.lineAt(pos).range;
     const message = `Missing documentation for function '${sym.name}'`;
+    // Create a diagnostic at the determined position.
     return new vscode.Diagnostic(
-      sym.range,
+      lineRange,
       message,
-      vscode.DiagnosticSeverity.Warning // or Error, Information, etc.
+      vscode.DiagnosticSeverity.Warning
     );
   });
   diagnosticCollection.set(doc.uri, diagnostics);
@@ -162,7 +191,7 @@ export class MissingDocCodeActionProvider implements vscode.CodeActionProvider {
     );
 
     // Filter out library symbols asynchronously
-    const userDefinedSymbols = [];
+    let userDefinedSymbols = [];
     for (const sym of allSymbols) {
       const isFromLibrary = await symFromLibrary(sym, sourceUri);
       if (!isFromLibrary) {
@@ -170,12 +199,15 @@ export class MissingDocCodeActionProvider implements vscode.CodeActionProvider {
       }
     }
 
+    // Sort user-defined symbols by their order in the source file
+    userDefinedSymbols = userDefinedSymbols.sort((a, b) => a.range.start.line - b.range.start.line);
+
     // Extract headings from markdown using the symbol provider
     const mdSymbols = await extractMarkdownSymbols(document);
     
     // Find missing symbols (those whose name does not appear in any heading)
     const missingSymbols = userDefinedSymbols.filter(sym => {
-      return !mdSymbols.some(mdSym => mdSym.trim().toLowerCase().includes(sym.name.trim().toLowerCase()));
+      return !mdSymbols.some(mdSym => mdSym.name.trim().toLowerCase().includes(sym.name.trim().toLowerCase()));
     });
 
     // Check if this document is marked as ignored
@@ -190,7 +222,7 @@ export class MissingDocCodeActionProvider implements vscode.CodeActionProvider {
     }
 
     // Update diagnostics to show warnings for missing symbols
-    updateDiagnostics(document, missingSymbols);
+    updateDiagnostics(document, missingSymbols, userDefinedSymbols, mdSymbols);
 
     const actions: vscode.CodeAction[] = [];
     
@@ -245,21 +277,79 @@ vscode.commands.registerCommand(
     
     // Sort the missing symbols by their order in the source file
     missingSymbols.sort((a, b) => a.range.start.line - b.range.start.line);
+
+    // Get the corresponding source file and compute the ordered user-defined symbols.
+    const sourceUri = await findCorrespondingSourceFile(document.uri);
+    if (!sourceUri) {
+      vscode.window.showErrorMessage("No corresponding source file found.");
+      return;
+    }
+    const srcSymbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[]>(
+      "vscode.executeDocumentSymbolProvider",
+      sourceUri
+    ) || [];
+
+    const rawSourceSymbols = flattenSymbols(srcSymbols).filter(sym =>
+      sym.kind === vscode.SymbolKind.Function &&
+      sym.name &&
+      sym.name.trim() !== '' &&
+      !sym.name.includes('callback') &&
+      !sym.name.startsWith('(') &&
+      !sym.name.startsWith('<')
+    );
+    
+    // Filter out library symbols asynchronously
+    let orderedSourceSymbols = [];
+    for (const sym of rawSourceSymbols) {
+      const isFromLibrary = await symFromLibrary(sym, sourceUri);
+      if (!isFromLibrary) {
+        orderedSourceSymbols.push(sym);
+      }
+    }
+
+    // Sort by source order
+    orderedSourceSymbols.sort((a, b) => a.range.start.line - b.range.start.line);
+
+    // Use the markdown symbol provider to extract documented symbols.
+    const mdSymbols = await extractMarkdownSymbols(document);
+
+    // Build an array of insertion objects.
+    const insertions: { position: vscode.Position, snippet: string }[] = [];
     
     // Prepare the text snippet to insert (each missing symbol gets a header template)
-    let insertionText = "\n\n";
     missingSymbols.forEach((sym, index) => {
       const symbolName = sym.name;
-      insertionText += `### ${index + 1}. \`${symbolName}()\`\n`;
-      insertionText += `- **Parameters**: \n`;
-      insertionText += `- **Return Value**: \n`;
-      insertionText += `- **Usage Example**:\n`;
-      insertionText += `- **Description**: Description for **${symbolName}**.\n\n`;
+
+      // Find the index of the missing symbol in the ordered source symbols.
+      const missingIndex = orderedSourceSymbols.findIndex(sourceSym =>
+        sourceSym.name.trim().toLowerCase().includes(symbolName.trim().toLowerCase())
+      );
+      // Use missingIndex+1 in the header. If not found, default to a sequential number.
+      const headerNumber = missingIndex >= 0 ? missingIndex + 1 : 1;
+
+      const snippetText =
+        `### ${headerNumber}. \`${symbolName}()\`\n` +
+        `- **Parameters**: \n` +
+        `- **Return Value**: \n` +
+        `- **Usage Example**:\n` +
+        "  ```javascript\n" +
+        `  ${symbolName}();\n` +
+        "  ```\n" +
+        `- **Description**: Description for **${symbolName}**.\n\n`;
+      
+      // Determine the insertion position using the helper function
+      const insertPos = getInsertionPositionForMissingSymbol(sym, orderedSourceSymbols, mdSymbols, document);
+      insertions.push({ position: insertPos, snippet: snippetText });
     });
+
+    // To avoid shifting positions as we insert, sort the insertions descending by document offset.
+    // Meaning insert from the end of the document backwards.
+    insertions.sort((a, b) => document.offsetAt(b.position) - document.offsetAt(a.position));
     
-    // Insert at the end of the document for now
     await editor.edit(editBuilder => {
-      editBuilder.insert(new vscode.Position(document.lineCount, 0), insertionText);
+      insertions.forEach(insertion => {
+        editBuilder.insert(insertion.position, insertion.snippet);
+      });
     });
     
     vscode.window.showInformationMessage("Inserted missing documentation sections.");
