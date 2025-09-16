@@ -75,18 +75,6 @@ function flattenSymbols(symbols: vscode.DocumentSymbol[]): vscode.DocumentSymbol
   return result;
 }
 
-// flatten DocumentSymbols (just top-level for now)
-function rootSymbols(symbols: vscode.DocumentSymbol[]): vscode.DocumentSymbol[] {
-  let result: vscode.DocumentSymbol[] = [];
-  for (const sym of symbols) {
-    result.push(sym);
-    // if (sym.children && sym.children.length > 0) {
-    //   result.push(...flattenSymbols(sym.children));
-    // }
-  }
-  return result;
-}
-
 // Extract markdown symbols
 async function extractMarkdownSymbols(doc: vscode.TextDocument): Promise<string[]> {
     const symbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[]>(
@@ -101,10 +89,28 @@ async function extractMarkdownSymbols(doc: vscode.TextDocument): Promise<string[
     return allSymbols.map(sym => sym.name);
 }
 
+async function symFromLibrary(sym: vscode.DocumentSymbol, sourceUri: vscode.Uri): Promise<boolean> {
+  try {
+    const defs = await vscode.commands.executeCommand<vscode.Location[]>(
+      'vscode.executeDefinitionProvider',
+      sourceUri,
+      sym.range.start
+    );
+    
+    // (> 0), it's user-defined, so return false
+    // (= 0), it's from library, so return true
+    return !defs || defs.length === 0;
+  } catch (error) {
+    console.error(`Error getting definition for symbol ${sym.name}:`, error);
+    // If there's an error, assume it's from library
+    return true;
+  }
+}
+
 // Call this function to update diagnostics from the missing symbols
 function updateDiagnostics(doc: vscode.TextDocument, missingSymbols: vscode.DocumentSymbol[]) {
   const diagnostics: vscode.Diagnostic[] = missingSymbols.map(sym => {
-    const message = `Missing documentation for symbol '${sym.name}'`;
+    const message = `Missing documentation for function '${sym.name}'`;
     return new vscode.Diagnostic(
       sym.range,
       message,
@@ -146,15 +152,29 @@ export class MissingDocCodeActionProvider implements vscode.CodeActionProvider {
       "vscode.executeDocumentSymbolProvider",
       sourceUri
     ) || [];
-    const allSymbols = rootSymbols(symbols).filter(sym =>
-      sym.kind === vscode.SymbolKind.Function
+    const allSymbols = flattenSymbols(symbols).filter(sym =>
+      sym.kind === vscode.SymbolKind.Function &&
+      sym.name &&
+      sym.name.trim() !== '' &&
+      !sym.name.includes('callback') &&
+      !sym.name.startsWith('(') &&
+      !sym.name.startsWith('<')
     );
+
+    // Filter out library symbols asynchronously
+    const userDefinedSymbols = [];
+    for (const sym of allSymbols) {
+      const isFromLibrary = await symFromLibrary(sym, sourceUri);
+      if (!isFromLibrary) {
+        userDefinedSymbols.push(sym);
+      }
+    }
 
     // Extract headings from markdown using the symbol provider
     const mdSymbols = await extractMarkdownSymbols(document);
     
     // Find missing symbols (those whose name does not appear in any heading)
-    const missingSymbols = allSymbols.filter(sym => {
+    const missingSymbols = userDefinedSymbols.filter(sym => {
       return !mdSymbols.some(mdSym => mdSym.trim().toLowerCase().includes(sym.name.trim().toLowerCase()));
     });
 
