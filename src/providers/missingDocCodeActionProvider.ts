@@ -137,6 +137,24 @@ function updateDiagnostics(
   const diagnostics: vscode.Diagnostic[] = missingSymbols.map(sym => {
     // Get the diagnostic position using our helper function; use a zero-length range at that position.
     const pos = getInsertionPositionForMissingSymbol(sym, orderedSourceSymbols, mdSymbols, doc);
+      // If position is at or beyond the end of the document, adjust to last mdSymbol.range.end
+      if (pos.line >= doc.lineCount) {
+        console.log("Position beyond document end, adjusting...");
+        // Find matched symbols (those whose name does not appear in any heading)
+        const matchedSymbols = mdSymbols.filter(mdSym => {
+          return orderedSourceSymbols.some(sourceSym => (mdSym.name.trim().toLowerCase()).includes(sourceSym.name.trim().toLowerCase()));
+        });
+        const lastMdSymbol = matchedSymbols.length > 0 ? matchedSymbols[matchedSymbols.length - 1] : null;
+        if (lastMdSymbol) {
+          console.log(`Last markdown symbol found: ${lastMdSymbol.name} at line ${lastMdSymbol.range.start.line}`);
+          return new vscode.Diagnostic(
+            doc.lineAt(lastMdSymbol.range.end).range,
+            `Missing documentation for function '${sym.name}'`,
+            vscode.DiagnosticSeverity.Warning
+          );
+        }
+      }
+    console.log(`Inserting diagnostic for missing symbol '${sym.name}' at line ${pos.line}, character ${pos.character}`);
     const lineRange = doc.lineAt(pos).range;
     const message = `Missing documentation for function '${sym.name}'`;
     // Create a diagnostic at the determined position.
@@ -146,6 +164,8 @@ function updateDiagnostics(
       vscode.DiagnosticSeverity.Warning
     );
   });
+  // Order diagnostics by their position in the document
+  diagnostics.sort((a, b) => a.range.start.line - b.range.start.line || a.range.start.character - b.range.start.character);
   diagnosticCollection.set(doc.uri, diagnostics);
 }
 
@@ -202,8 +222,8 @@ export class MissingDocCodeActionProvider implements vscode.CodeActionProvider {
     // Sort user-defined symbols by their order in the source file
     userDefinedSymbols = userDefinedSymbols.sort((a, b) => a.range.start.line - b.range.start.line);
 
-    // Extract headings from markdown using the symbol provider
-    const mdSymbols = await extractMarkdownSymbols(document);
+    // Extract headings and sort from markdown using the symbol provider
+    const mdSymbols = (await extractMarkdownSymbols(document)).sort((a, b) => a.range.start.line - b.range.start.line);
     
     // Find missing symbols (those whose name does not appear in any heading)
     const missingSymbols = userDefinedSymbols.filter(sym => {
@@ -225,15 +245,40 @@ export class MissingDocCodeActionProvider implements vscode.CodeActionProvider {
     updateDiagnostics(document, missingSymbols, userDefinedSymbols, mdSymbols);
 
     const actions: vscode.CodeAction[] = [];
-    
+
+    // Filter diagnostics for missing documentation that intersect with the current range
+    const relevantDiagnostics = context.diagnostics.filter(diag =>
+      diag.message.startsWith("Missing documentation for function") &&
+      diag.range.intersection(range)
+    );
+
+    // Create individual quick fixes for each relevant diagnostic
+    relevantDiagnostics.forEach(diagnostic => {
+      const insertOneAction = new vscode.CodeAction(
+        "Insert missing documentation sections",
+        vscode.CodeActionKind.QuickFix
+      );
+      
+      // Link this specific diagnostic to the code action
+      insertOneAction.diagnostics = [diagnostic];
+      
+      insertOneAction.command = {
+        title: "Insert Missing Documentation",
+        command: "doc-helper-0711.insertMissingDocs",
+        arguments: [document.uri, [diagnostic]] // Pass the specific diagnostic
+      };
+      insertOneAction.isPreferred = true;
+      actions.push(insertOneAction);
+    });
+
     // Create a CodeAction to let the user insert missing documentation
     const insertAction = new vscode.CodeAction(
-      "Insert missing documentation sections",
+      "Insert ALL missing documentation sections",
       vscode.CodeActionKind.QuickFix
     );
     insertAction.command = {
       title: "Insert Missing Documentation",
-      command: "doc-helper-0711.insertMissingDocs",
+      command: "doc-helper-0711.insertAllMissingDocs",
       arguments: [document.uri, missingSymbols]
     };
     insertAction.isPreferred = true;
@@ -268,9 +313,106 @@ export function registerMissingDocCodeActions(context: vscode.ExtensionContext):
   return disposable;
 }
 
-// Command to insert missing documentation sections
+// Command to insert missing documentation for a single selected diagnostic
 vscode.commands.registerCommand(
   "doc-helper-0711.insertMissingDocs",
+  async (docUri: vscode.Uri, diagnostics: vscode.Diagnostic[]) => {
+    const document = await vscode.workspace.openTextDocument(docUri);
+    const editor = await vscode.window.showTextDocument(document);
+
+    // Use the specific diagnostic passed from the quick fix
+    if (!diagnostics || diagnostics.length === 0) {
+      vscode.window.showInformationMessage("No diagnostic selected to fix.");
+      return;
+    }
+    const diagToFix = diagnostics[0];
+
+    // Parse the function name from the diagnostic message
+    const regex = /Missing documentation for function '([^']+)'/;
+    const match = diagToFix.message.match(regex);
+    if (!match) {
+      vscode.window.showErrorMessage("Could not parse function name from diagnostic.");
+      return;
+    }
+    const funcName = match[1];
+
+    // Find the corresponding source file
+    const sourceUri = await findCorrespondingSourceFile(document.uri);
+    if (!sourceUri) {
+      vscode.window.showErrorMessage("No corresponding source file found.");
+      return;
+    }
+
+    // Get source symbols and filter for user-declared symbols
+    const srcSymbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[]>(
+      "vscode.executeDocumentSymbolProvider",
+      sourceUri
+    ) || [];
+
+    const rawSourceSymbols = flattenSymbols(srcSymbols).filter(sym =>
+      sym.kind === vscode.SymbolKind.Function &&
+      sym.name &&
+      sym.name.trim() !== '' &&
+      !sym.name.includes('callback') &&
+      !sym.name.startsWith('(') &&
+      !sym.name.startsWith('<')
+    );
+
+    // Filter out library symbols asynchronously
+    let userDefinedSymbols: vscode.DocumentSymbol[] = [];
+    for (const sym of rawSourceSymbols) {
+      const isFromLibrary = await symFromLibrary(sym, sourceUri);
+      if (!isFromLibrary) {
+        userDefinedSymbols.push(sym);
+      }
+    }
+    // Sort user-defined symbols by order in the source file
+    userDefinedSymbols.sort((a, b) => a.range.start.line - b.range.start.line);
+
+    // Find the missing symbol in the source file by matching the function name
+    const missingSymbol = userDefinedSymbols.find(sym =>
+      sym.name.trim().toLowerCase() === funcName.trim().toLowerCase()
+    );
+    if (!missingSymbol) {
+      vscode.window.showErrorMessage(`Could not find matching function symbol for "${funcName}" in the source file.`);
+      return;
+    }
+
+    // Extract markdown headings from the documentation file
+    const mdSymbols = await extractMarkdownSymbols(document);
+
+    // Compute the insertion position in the markdown file using the helper
+    const insertPos = getInsertionPositionForMissingSymbol(missingSymbol, userDefinedSymbols, mdSymbols, document);
+
+    // Determine header number based on the function's order in the source
+    const missingIndex = userDefinedSymbols.findIndex(sym =>
+      sym.name.trim().toLowerCase() === funcName.trim().toLowerCase()
+    );
+    const headerNumber = missingIndex >= 0 ? missingIndex + 1 : 1;
+
+    // Build the documentation snippet
+    const snippetText =
+      `### ${headerNumber}. \`${funcName}()\`\n` +
+      `- **Parameters**: \n` +
+      `- **Return Value**: \n` +
+      `- **Usage Example**:\n` +
+      "  ```javascript\n" +
+      `  ${funcName}();\n` +
+      "  ```\n" +
+      `- **Description**: Description for **${funcName}**.\n\n`;
+
+    // Insert the snippet at the computed position
+    await editor.edit(editBuilder => {
+      editBuilder.insert(insertPos, snippetText);
+    });
+
+    vscode.window.showInformationMessage(`Inserted documentation for function "${funcName}".`);
+  }
+);
+
+// Command to insert missing documentation sections
+vscode.commands.registerCommand(
+  "doc-helper-0711.insertAllMissingDocs",
   async (docUri: vscode.Uri, missingSymbols: vscode.DocumentSymbol[]) => {
     const document = await vscode.workspace.openTextDocument(docUri);
     const editor = await vscode.window.showTextDocument(document);
@@ -317,7 +459,7 @@ vscode.commands.registerCommand(
     const insertions: { position: vscode.Position, snippet: string }[] = [];
     
     // Prepare the text snippet to insert (each missing symbol gets a header template)
-    missingSymbols.forEach((sym, index) => {
+    missingSymbols.forEach((sym) => {
       const symbolName = sym.name;
 
       // Find the index of the missing symbol in the ordered source symbols.

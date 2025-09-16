@@ -129,7 +129,11 @@
       },
       {
         "command": "doc-helper-0711.insertMissingDocs",
-        "title": "Insert Missing Documentation Sections"
+        "title": "Insert Current Missing Documentation Section"
+      },
+      {
+        "command": "doc-helper-0711.insertAllMissingDocs",
+        "title": "Insert All Missing Documentation Sections"
       },
       {
         "command": "doc-helper-0711.ignoreMissingDocs",
