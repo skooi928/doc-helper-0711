@@ -218,7 +218,8 @@ export class FileStatusProvider implements vscode.TreeDataProvider<FileStatusIte
         items.push(new FileStatusItem(name, uri, status, uri.fsPath, cmd));
       }
     }
-
+    // Sort items alphabetically
+    items.sort((a, b) => a.label.localeCompare(b.label));
     return items;
   }
 
