@@ -4,6 +4,7 @@ import { ChatbotViewProvider } from './providers/chatbotViewProvider';
 import { FileStatusItem, FileStatusProvider } from './providers/fileStatusProvider';
 import { registerFileLinkingProviders } from './providers/fileLinkingProvider';
 import { registerMissingDocCodeActions } from './providers/missingDocCodeActionProvider';
+import { registerWrongNumberingCodeActions } from './providers/wrongNumberingCodeActionProvider';
 import { generateDocumentation, summarizeDocumentation, checkDocumentation, registerInlineSuggestionProvider } from './utils/simplifyWriting';
 
 export function activate(context: vscode.ExtensionContext) {
@@ -253,6 +254,8 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Register the missing doc code action provider
   registerMissingDocCodeActions(context);
+  // Register the wrong numbering code action provider
+  registerWrongNumberingCodeActions(context);
 
   // Show status of the opened file
   // create status bar item

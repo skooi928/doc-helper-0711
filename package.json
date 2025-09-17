@@ -140,6 +140,18 @@
         "title": "Ignore Documentation Warnings"
       },
       {
+        "command": "doc-helper-0711.fixMissingNumber",
+        "title": "Fix Missing Numbering"
+      },
+      {
+        "command": "doc-helper-0711.fixDuplicateNumber",
+        "title": "Fix Duplicate Numbering"
+      },
+      {
+        "command": "doc-helper-0711.renumberAllHeadings",
+        "title": "Renumber All Headings"
+      },
+      {
         "command": "doc-helper-0711.reportIssue",
         "title": "Doc Helper: Report Issue"
       }
