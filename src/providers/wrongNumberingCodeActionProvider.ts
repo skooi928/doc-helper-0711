@@ -14,21 +14,25 @@ interface HeadingInfo {
   line: number;
 }
 
-function getIgnoredNumbers(context: vscode.ExtensionContext, docUri: vscode.Uri): number[] {
-  const all = context.globalState.get<Record<string, number[]>>('ignoredNumberingProblems', {});
+function getIgnoredNumbers(context: vscode.ExtensionContext, docUri: vscode.Uri): { number: number, level: number }[] {
+  const all = context.globalState.get<Record<string, { number: number, level: number }[]>>('ignoredNumberingProblems', {});
   return all[docUri.toString()] || [];
 }
 
 async function addIgnoredNumber(
   context: vscode.ExtensionContext,
   docUri: vscode.Uri,
-  num: number
+  num: number,
+  level: number
 ) {
-  const all = context.globalState.get<Record<string, number[]>>('ignoredNumberingProblems', {});
+  const all = context.globalState.get<Record<string, { number: number, level: number }[]>>('ignoredNumberingProblems', {});
   const key = docUri.toString();
   const arr = all[key] || [];
-  if (!arr.includes(num)) {
-    arr.push(num);
+
+  // Check if this number+level combination already exists
+  const exists = arr.some(item => item.number === num && item.level === level);
+  if (!exists) {
+    arr.push({ number: num, level: level });
     all[key] = arr;
     await context.globalState.update('ignoredNumberingProblems', all);
   }
@@ -44,9 +48,9 @@ function extractNumberFromHeading(headingText: string): number | null {
 }
 
 // Analyze headings and find numbering issues
-function analyzeNumberingSequence(headings: HeadingInfo[]): { missing: number[], duplicates: { number: number, lines: number[] }[] } {
-  const issues = { missing: [] as number[], duplicates: [] as { number: number, lines: number[] }[] };
-  
+function analyzeNumberingSequence(headings: HeadingInfo[]): { missing: { number: number, level: number }[], duplicates: { number: number, lines: number[] }[] } {
+  const issues = { missing: [] as { number: number, level: number }[], duplicates: [] as { number: number, lines: number[] }[] };
+
   if (headings.length === 0) {
     return issues;
   }
@@ -59,9 +63,14 @@ function analyzeNumberingSequence(headings: HeadingInfo[]): { missing: number[],
     }
     headingsByLevel.get(heading.level)!.push(heading);
   }
+
+  // sort based on number of # instead of tree level
+  const sortedHeadingsByLevel = new Map(
+    [...headingsByLevel.entries()].sort((a, b) => a[0] - b[0])
+  );
   
   // Analyze each level separately
-  for (const [level, levelHeadings] of headingsByLevel) {
+  for (const [level, levelHeadings] of sortedHeadingsByLevel) {
     const numberedHeadings = levelHeadings.filter(h => h.number !== null);
 
     if (numberedHeadings.length < 2) {
@@ -96,7 +105,7 @@ function analyzeNumberingSequence(headings: HeadingInfo[]): { missing: number[],
     if (max - min >= numbers.length) {
       for (let i = min; i <= max; i++) {
         if (!numbers.includes(i)) {
-          issues.missing.push(i);
+          issues.missing.push({number: i, level: level });
         }
       }
     }
@@ -168,8 +177,13 @@ async function updateNumberingDiagnostics(document: vscode.TextDocument) {
   
   // Create diagnostics for missing numbers
   for (const missingNum of issues.missing) {
-    if (ignored.includes(missingNum)) {
-      continue; // Skip ignored numbers
+    // Check if this specific number+level combination is ignored
+    const isIgnored = ignored.some(item => 
+      item.number === missingNum.number && item.level === missingNum.level
+    );
+    
+    if (isIgnored) {
+      continue; // Skip ignored numbers at this level
     }
     // Find the best position to show the diagnostic (after the previous number or before the next)
     const headingsWithNumbers = headings.filter(h => h.number !== null);
@@ -177,7 +191,7 @@ async function updateNumberingDiagnostics(document: vscode.TextDocument) {
     
     // Find heading that comes after the missing number
     for (const heading of headingsWithNumbers) {
-      if (heading.number! > missingNum) {
+      if (heading.number! > missingNum.number && heading.level === missingNum.level) {
         targetHeading = heading;
         break;
       }
@@ -190,7 +204,7 @@ async function updateNumberingDiagnostics(document: vscode.TextDocument) {
     
     if (targetHeading) {
       const range = targetHeading.symbol.range;
-      const message = `Missing number ${missingNum} in heading sequence`;
+      const message = `Missing number ${missingNum.number} in heading sequence (level ${missingNum.level})`;
       const d = new vscode.Diagnostic(
         range,
         message,
@@ -203,21 +217,27 @@ async function updateNumberingDiagnostics(document: vscode.TextDocument) {
   
   // Create diagnostics for duplicate numbers
   for (const duplicate of issues.duplicates) {
-    if (ignored.includes(duplicate.number)) {
-      continue;
-    }
     for (let i = 1; i < duplicate.lines.length; i++) { // Skip first occurrence
       const heading = headings.find(h => h.line === duplicate.lines[i]);
       if (heading) {
+        // Check if this specific number+level combination is ignored
+        const isIgnored = ignored.some(item => 
+          item.number === duplicate.number && item.level === heading.level
+        );
+        
+        if (isIgnored) {
+          continue;
+        }
+
         const range = heading.symbol.range;
-        const message = `Duplicate number ${duplicate.number} in heading sequence`;
-      const d = new vscode.Diagnostic(
-        range,
-        message,
-        vscode.DiagnosticSeverity.Warning
-      );
-      d.source = 'numberingChecker';
-      diagnostics.push(d);
+        const message = `Duplicate number ${duplicate.number} in heading sequence (level ${heading.level})`;
+        const d = new vscode.Diagnostic(
+          range,
+          message,
+          vscode.DiagnosticSeverity.Warning
+        );
+        d.source = 'numberingChecker';
+        diagnostics.push(d);
       }
     }
   }
@@ -284,6 +304,19 @@ export class WrongNumberingCodeActionProvider implements vscode.CodeActionProvid
         };
         actions.push(fixAction);
       }
+
+      // Add action to renumber all headings
+      const renumberAllAction = new vscode.CodeAction(
+        "Renumber all same level headings in sequence",
+        vscode.CodeActionKind.QuickFix
+      );
+      renumberAllAction.command = {
+        title: "Renumber all headings",
+        command: "doc-helper-0711.renumberAllHeadings",
+        arguments: [document.uri, diagnostic]
+      };
+      actions.push(renumberAllAction);
+
       // ignore this numbering problem
       const ignore = new vscode.CodeAction(
         `Ignore this numbering problem`,
@@ -297,18 +330,6 @@ export class WrongNumberingCodeActionProvider implements vscode.CodeActionProvid
       };
       actions.push(ignore);
     });
-    
-    // Add action to renumber all headings
-    const renumberAllAction = new vscode.CodeAction(
-      "Renumber all headings in sequence",
-      vscode.CodeActionKind.QuickFix
-    );
-    renumberAllAction.command = {
-      title: "Renumber all headings",
-      command: "doc-helper-0711.renumberAllHeadings",
-      arguments: [document.uri]
-    };
-    actions.push(renumberAllAction);
     
     return actions;
   }
@@ -325,9 +346,22 @@ export function registerWrongNumberingCodeActions(context: vscode.ExtensionConte
     provider,
     { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }
   );
+
+  const clearIgnoredOnChange = vscode.workspace.onDidSaveTextDocument(doc => {
+    if (doc.languageId !== 'markdown') {
+      return;
+    }
+    // load the full map
+    const all = context.globalState.get<Record<string, number[]>>('ignoredNumberingProblems', {});
+    // remove this URI’s key
+    delete all[doc.uri.toString()];
+    // write it back
+    context.globalState.update('ignoredNumberingProblems', all);
+  });
   
   context.subscriptions.push(
-    disposable
+    disposable,
+    clearIgnoredOnChange,
   );
   
   return disposable;
@@ -341,16 +375,20 @@ vscode.commands.registerCommand(
     const editor = await vscode.window.showTextDocument(document);
     
     // Extract missing number from diagnostic message
-    const match = diagnostic.message.match(/Missing number (\d+)/);
+    const match = diagnostic.message.match(/Missing number (\d+) in heading sequence \(level (\d+)\)/);
     if (!match) {
       return;
     }
     
     const missingNumber = parseInt(match[1], 10);
+    const level = parseInt(match[2], 10);
+
+    // Create heading with appropriate level
+    const headingPrefix = '#'.repeat(level);
     
     // Insert a placeholder heading with the missing number
     const insertPos = diagnostic.range.start;
-    const snippetText = `### ${missingNumber}. [Missing Section]\n\n`;
+    const snippetText = `${headingPrefix} ${missingNumber}. [Missing Section]\n\n`;
     
     await editor.edit(editBuilder => {
       editBuilder.insert(insertPos, snippetText);
@@ -388,22 +426,31 @@ vscode.commands.registerCommand(
 // Command to renumber all headings
 vscode.commands.registerCommand(
   "doc-helper-0711.renumberAllHeadings",
-  async (docUri: vscode.Uri) => {
+  async (docUri: vscode.Uri, diagnostic: vscode.Diagnostic) => {
     const document = await vscode.workspace.openTextDocument(docUri);
     const editor = await vscode.window.showTextDocument(document);
-    
-    const headings = await extractHeadingInfo(document);
-    const numberedHeadings = headings.filter(h => h.number !== null);
-    
-    if (numberedHeadings.length === 0) {
-      vscode.window.showInformationMessage("No numbered headings found to renumber.");
+
+    // Extract level from diagnostic message
+    const match = diagnostic.message.match(/(?:Missing|Duplicate) number (\d+) in heading sequence \(level (\d+)\)/);
+    if (!match) {
+      vscode.window.showErrorMessage("Could not parse level from diagnostic message.");
       return;
     }
+
+    const level = parseInt(match[2], 10);
     
-    // Sort by line number and renumber sequentially
+    const headings = await extractHeadingInfo(document);
+    const numberedHeadings = headings.filter(h => h.number !== null && h.level === level);
+    
+    if (numberedHeadings.length === 0) {
+      vscode.window.showInformationMessage(`No numbered headings found at level ${level} to renumber.`);
+      return;
+    }
+
     numberedHeadings.sort((a, b) => a.line - b.line);
     
     await editor.edit(editBuilder => {
+      // Renumber sequentially starting from 1 for this specific level
       numberedHeadings.forEach((heading, index) => {
         const newNumber = index + 1;
         const line = document.lineAt(heading.line);
@@ -412,7 +459,9 @@ vscode.commands.registerCommand(
       });
     });
     
-    vscode.window.showInformationMessage(`Renumbered ${numberedHeadings.length} headings sequentially.`);
+    vscode.window.showInformationMessage(
+      `Renumbered ${numberedHeadings.length} headings at level ${level}.`
+    );
   }
 );
 
@@ -421,12 +470,13 @@ vscode.commands.registerCommand(
   async (docUri: vscode.Uri, diagnostic: vscode.Diagnostic) => {
     const doc = await vscode.workspace.openTextDocument(docUri);
     // parse the number from the diagnostic message
-    const m = diagnostic.message.match(/(?:Missing|Duplicate) number (\d+) in heading sequence/);
-    if (!m) {
+    const match = diagnostic.message.match(/(?:Missing|Duplicate) number (\d+) in heading sequence \(level (\d+)\)/);
+    if (!match) {
       vscode.window.showErrorMessage("Could not parse heading number from diagnostic.");
       return;
     }
-    const num = parseInt(m[1], 10);
-    await addIgnoredNumber(globalContext, docUri, num);
+    const num = parseInt(match[1], 10);
+    const level = parseInt(match[2], 10);
+    await addIgnoredNumber(globalContext, docUri, num, level);
   }
 );
