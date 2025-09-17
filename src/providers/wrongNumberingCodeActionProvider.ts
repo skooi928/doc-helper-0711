@@ -14,6 +14,26 @@ interface HeadingInfo {
   line: number;
 }
 
+function getIgnoredNumbers(context: vscode.ExtensionContext, docUri: vscode.Uri): number[] {
+  const all = context.globalState.get<Record<string, number[]>>('ignoredNumberingProblems', {});
+  return all[docUri.toString()] || [];
+}
+
+async function addIgnoredNumber(
+  context: vscode.ExtensionContext,
+  docUri: vscode.Uri,
+  num: number
+) {
+  const all = context.globalState.get<Record<string, number[]>>('ignoredNumberingProblems', {});
+  const key = docUri.toString();
+  const arr = all[key] || [];
+  if (!arr.includes(num)) {
+    arr.push(num);
+    all[key] = arr;
+    await context.globalState.update('ignoredNumberingProblems', all);
+  }
+}
+
 // Extract numbering from heading text
 function extractNumberFromHeading(headingText: string): number | null {
   // 1) Remove any leading markdown header markers (e.g. "### ")
@@ -98,33 +118,37 @@ async function extractHeadingInfo(document: vscode.TextDocument): Promise<Headin
   
   const headings: HeadingInfo[] = [];
   
-  function processSymbol(symbol: vscode.DocumentSymbol, level: number = 1) {
+  function processSymbol(symbol: vscode.DocumentSymbol) {
     // Check if this is a heading (usually SymbolKind.String or SymbolKind.Namespace for markdown)
     if (symbol.kind === vscode.SymbolKind.String || 
         symbol.kind === vscode.SymbolKind.Namespace ||
         symbol.kind === vscode.SymbolKind.Module) {
+
+      const line = symbol.range.start.line;
+      const raw = document.lineAt(line).text;
+
+      // match the actual `### …` from 1 - 6 only on the line
+      const m = raw.match(/^(#{1,6})\s+(.*)$/);
+      const level = m ? m[1].length : 1;
+      const text  = m ? m[2].trim() : symbol.name;
       
-      const number = extractNumberFromHeading(symbol.name);
+      const number = extractNumberFromHeading(text);
       headings.push({
         symbol,
         level,
         number,
-        text: symbol.name,
-        line: symbol.range.start.line
+        text,
+        line
       });
     }
     
-    // Process children with increased level
-    if (symbol.children) {
-      for (const child of symbol.children) {
-        processSymbol(child, level + 1);
-      }
+    // Process children recursively
+    for (const child of symbol.children) {
+      processSymbol(child);
     }
   }
   
-  for (const symbol of symbols) {
-    processSymbol(symbol);
-  }
+  symbols.forEach(processSymbol);
 
   return headings.sort((a, b) => a.line - b.line);
 }
@@ -137,13 +161,16 @@ async function updateNumberingDiagnostics(document: vscode.TextDocument) {
   }
   
   const headings = await extractHeadingInfo(document);
-  
   const issues = analyzeNumberingSequence(headings);
+  const ignored = getIgnoredNumbers(globalContext, document.uri);
   
   const diagnostics: vscode.Diagnostic[] = [];
   
   // Create diagnostics for missing numbers
   for (const missingNum of issues.missing) {
+    if (ignored.includes(missingNum)) {
+      continue; // Skip ignored numbers
+    }
     // Find the best position to show the diagnostic (after the previous number or before the next)
     const headingsWithNumbers = headings.filter(h => h.number !== null);
     let targetHeading: HeadingInfo | null = null;
@@ -176,6 +203,9 @@ async function updateNumberingDiagnostics(document: vscode.TextDocument) {
   
   // Create diagnostics for duplicate numbers
   for (const duplicate of issues.duplicates) {
+    if (ignored.includes(duplicate.number)) {
+      continue;
+    }
     for (let i = 1; i < duplicate.lines.length; i++) { // Skip first occurrence
       const heading = headings.find(h => h.line === duplicate.lines[i]);
       if (heading) {
@@ -222,8 +252,6 @@ export class WrongNumberingCodeActionProvider implements vscode.CodeActionProvid
       (diag.message.includes("Missing number") || diag.message.includes("Duplicate number")) &&
       diag.range.intersection(range)
     );
-
-    // console.log("Relevant diagnostics:", context.diagnostics);
     
     if (relevantDiagnostics.length === 0) {
       return actions;
@@ -256,6 +284,18 @@ export class WrongNumberingCodeActionProvider implements vscode.CodeActionProvid
         };
         actions.push(fixAction);
       }
+      // ignore this numbering problem
+      const ignore = new vscode.CodeAction(
+        `Ignore this numbering problem`,
+        vscode.CodeActionKind.QuickFix
+      );
+      ignore.diagnostics = [diagnostic];
+      ignore.command = {
+        title: 'Ignore numbering problem',
+        command: 'doc-helper-0711.ignoreNumberingProblem',
+        arguments: [document.uri, diagnostic]
+      };
+      actions.push(ignore);
     });
     
     // Add action to renumber all headings
@@ -373,5 +413,20 @@ vscode.commands.registerCommand(
     });
     
     vscode.window.showInformationMessage(`Renumbered ${numberedHeadings.length} headings sequentially.`);
+  }
+);
+
+vscode.commands.registerCommand(
+  'doc-helper-0711.ignoreNumberingProblem',
+  async (docUri: vscode.Uri, diagnostic: vscode.Diagnostic) => {
+    const doc = await vscode.workspace.openTextDocument(docUri);
+    // parse the number from the diagnostic message
+    const m = diagnostic.message.match(/(?:Missing|Duplicate) number (\d+) in heading sequence/);
+    if (!m) {
+      vscode.window.showErrorMessage("Could not parse heading number from diagnostic.");
+      return;
+    }
+    const num = parseInt(m[1], 10);
+    await addIgnoredNumber(globalContext, docUri, num);
   }
 );

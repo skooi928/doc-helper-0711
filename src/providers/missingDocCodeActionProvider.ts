@@ -253,6 +253,19 @@ export class MissingDocCodeActionProvider implements vscode.CodeActionProvider {
       insertOneAction.isPreferred = true;
       actions.push(insertOneAction);
 
+      // Create a CodeAction to let the user insert missing documentation
+      const insertAction = new vscode.CodeAction(
+        "Insert ALL missing documentation sections",
+        vscode.CodeActionKind.QuickFix
+      );
+      insertAction.command = {
+        title: "Insert ALL Missing Documentation Sections",
+        command: "doc-helper-0711.insertAllMissingDocs",
+        arguments: [document.uri, missingSymbols]
+      };
+      insertAction.isPreferred = true;
+      actions.push(insertAction);
+
       // Also add an ignore action so the user can choose to dismiss the warnings.
       const ignoreAction = new vscode.CodeAction(
         "Ignore missing documentation warnings",
@@ -265,19 +278,6 @@ export class MissingDocCodeActionProvider implements vscode.CodeActionProvider {
       };
       actions.push(ignoreAction);
     });
-
-    // Create a CodeAction to let the user insert missing documentation
-    const insertAction = new vscode.CodeAction(
-      "Insert ALL missing documentation sections",
-      vscode.CodeActionKind.QuickFix
-    );
-    insertAction.command = {
-      title: "Insert ALL Missing Documentation Sections",
-      command: "doc-helper-0711.insertAllMissingDocs",
-      arguments: [document.uri, missingSymbols]
-    };
-    insertAction.isPreferred = true;
-    actions.push(insertAction);
 
     return actions;
   }
