@@ -240,11 +240,6 @@
     "configuration": {
         "title": "Doc Helper",
         "properties": {
-          "docHelper.apiEndpoint": {
-            "type": "string",
-            "default": "http://localhost:8080",
-            "description": "Endpoint URL for the Doc Helper backend server"
-          },
           "docHelper.geminiApiKey": {
             "type": "string",
             "default": "",
