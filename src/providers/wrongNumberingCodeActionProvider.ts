@@ -48,8 +48,8 @@ function extractNumberFromHeading(headingText: string): number | null {
 }
 
 // Analyze headings and find numbering issues
-function analyzeNumberingSequence(headings: HeadingInfo[]): { missing: { number: number, level: number }[], duplicates: { number: number, lines: number[] }[] } {
-  const issues = { missing: [] as { number: number, level: number }[], duplicates: [] as { number: number, lines: number[] }[] };
+function analyzeNumberingSequence(headings: HeadingInfo[]): { missing: { number: number, level: number, line: number }[], duplicates: { number: number, lines: number }[] } {
+  const issues = { missing: [] as { number: number, level: number, line: number }[], duplicates: [] as { number: number, lines: number }[] };
 
   if (headings.length === 0) {
     return issues;
@@ -81,31 +81,40 @@ function analyzeNumberingSequence(headings: HeadingInfo[]): { missing: { number:
     numberedHeadings.sort((a, b) => a.line - b.line);
     
     // Check for duplicates
-    const numberCounts = new Map<number, number[]>();
-    for (const heading of numberedHeadings) {
+
+    let expectedNext = 1;
+    let prevDiff = 0;
+    
+    for (let i = 0; i < numberedHeadings.length; i++) {
+      const heading = numberedHeadings[i];
       const num = heading.number!;
-      if (!numberCounts.has(num)) {
-        numberCounts.set(num, []);
-      }
-      numberCounts.get(num)!.push(heading.line);
-    }
-    
-    for (const [num, lines] of numberCounts) {
-      if (lines.length > 1) {
-        issues.duplicates.push({ number: num, lines });
-      }
-    }
-    
-    // Check for missing numbers in sequence
-    const numbers = numberedHeadings.map(h => h.number!).sort((a, b) => a - b);
-    const min = Math.min(...numbers);
-    const max = Math.max(...numbers);
-    
-    // Check for missing numbers if it looks like a continuous sequence, and it must start with 1
-    if (min !== 1 || max - min >= numbers.length) {
-      for (let i = 1; i <= max; i++) {
-        if (!numbers.includes(i)) {
-          issues.missing.push({number: i, level: level });
+      
+      // Check if this number follows the expected sequence
+      if (num === expectedNext) {
+        // This is the expected next number, increment expected
+        expectedNext++;
+      } else if (num === 1) {
+        // Restart sequence from 1 is always allowed
+        expectedNext = 2;
+      } else {
+        // This number doesn't follow the rule
+        // Check what kind of error it is
+        
+        if (num < expectedNext) {
+          const diff = expectedNext - num;
+          // This number already appeared in current sequence
+          // We'll handle this in the duplicate detection below
+          if (diff !== prevDiff) {
+            for (let j = 1; j <= num-1; j++) {
+              issues.missing.push({ number: j, level: level, line: heading.line });
+            }
+            prevDiff = diff - 1;
+          }
+          issues.duplicates.push({ number: num, lines: heading.line });
+        } else {
+          // This number is higher than expected - there are missing numbers
+          issues.missing.push({ number: expectedNext, level: level, line: heading.line });
+          expectedNext = num + 1;
         }
       }
     }
@@ -191,7 +200,7 @@ async function updateNumberingDiagnostics(document: vscode.TextDocument) {
     
     // Find heading that comes after the missing number
     for (const heading of headingsWithNumbers) {
-      if (heading.number! > missingNum.number && heading.level === missingNum.level) {
+      if (heading.line === missingNum.line && heading.level === missingNum.level) {
         targetHeading = heading;
         break;
       }
@@ -217,28 +226,26 @@ async function updateNumberingDiagnostics(document: vscode.TextDocument) {
   
   // Create diagnostics for duplicate numbers
   for (const duplicate of issues.duplicates) {
-    for (let i = 1; i < duplicate.lines.length; i++) { // Skip first occurrence
-      const heading = headings.find(h => h.line === duplicate.lines[i]);
-      if (heading) {
-        // Check if this specific number+level combination is ignored
-        const isIgnored = ignored.some(item => 
-          item.number === duplicate.number && item.level === heading.level
-        );
-        
-        if (isIgnored) {
-          continue;
-        }
-
-        const range = heading.symbol.range;
-        const message = `Duplicate number ${duplicate.number} in heading sequence (level ${heading.level})`;
-        const d = new vscode.Diagnostic(
-          range,
-          message,
-          vscode.DiagnosticSeverity.Warning
-        );
-        d.source = 'numberingChecker';
-        diagnostics.push(d);
+    const heading = headings.find(h => h.line === duplicate.lines);
+    if (heading) {
+      // Check if this specific number+level combination is ignored
+      const isIgnored = ignored.some(item => 
+        item.number === duplicate.number && item.level === heading.level
+      );
+      
+      if (isIgnored) {
+        continue;
       }
+
+      const range = heading.symbol.range;
+      const message = `Duplicate number ${duplicate.number} in heading sequence (level ${heading.level})`;
+      const d = new vscode.Diagnostic(
+        range,
+        message,
+        vscode.DiagnosticSeverity.Warning
+      );
+      d.source = 'numberingChecker';
+      diagnostics.push(d);
     }
   }
   
