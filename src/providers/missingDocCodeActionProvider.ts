@@ -6,29 +6,26 @@ let globalContext: vscode.ExtensionContext;
 // HELPER FUNCTIONS
 // -----------------------------------
 
-// Create a Diagnostic Collection (can be done in your activate function)
-// let ignore = false;}
-
 const diagnosticCollection = vscode.languages.createDiagnosticCollection('docHelper');
-// Function to retrieve ignored document URIs (stored as strings)
-function getIgnoredDocs(context: vscode.ExtensionContext): string[] {
-  return context.globalState.get<string[]>('ignoredDocs', []);
+
+function getIgnoredSymbols(context: vscode.ExtensionContext, docUri: vscode.Uri): string[] {
+  const all = context.globalState.get<Record<string,string[]>>('ignoredMissingDocs', {});
+  return all[docUri.toString()] || [];
 }
 
-// Function to store an ignored document URI
-async function addIgnoredDoc(context: vscode.ExtensionContext, docUri: vscode.Uri) {
-  const ignoredDocs = getIgnoredDocs(context);
-  const uriStr = docUri.toString();
-  if (!ignoredDocs.includes(uriStr)) {
-    ignoredDocs.push(uriStr);
-    await context.globalState.update('ignoredDocs', ignoredDocs);
+async function addIgnoredSymbol(
+  context: vscode.ExtensionContext,
+  docUri: vscode.Uri,
+  funcName: string
+) {
+  const all = context.globalState.get<Record<string,string[]>>('ignoredMissingDocs', {});
+  const key = docUri.toString();
+  const arr = all[key] || [];
+  if (!arr.includes(funcName)) {
+    arr.push(funcName);
+    all[key] = arr;
+    await context.globalState.update('ignoredMissingDocs', all);
   }
-}
-
-// Function to check if a document is ignored
-function isDocIgnored(context: vscode.ExtensionContext, docUri: vscode.Uri): boolean {
-  const ignoredDocs = getIgnoredDocs(context);
-  return ignoredDocs.includes(docUri.toString());
 }
 
 async function findCorrespondingSourceFile(docUri: vscode.Uri): Promise<vscode.Uri | undefined> {
@@ -139,17 +136,21 @@ function updateDiagnostics(
   orderedSourceSymbols: vscode.DocumentSymbol[],
   mdSymbols: vscode.DocumentSymbol[]
 ) {
-  const diagnostics: vscode.Diagnostic[] = missingSymbols.map(sym => {
+  const ignored = getIgnoredSymbols(globalContext, doc.uri);
+  const toReport = missingSymbols.filter(sym => !ignored.includes(sym.name));
+  const diagnostics: vscode.Diagnostic[] = toReport.map(sym => {
     // Get the diagnostic position using our helper function; use a zero-length range at that position.
     const pos = getInsertionPositionForMissingSymbol(sym, orderedSourceSymbols, mdSymbols, doc);
     const lineRange = doc.lineAt(pos).range;
     const message = `Missing documentation for function '${sym.name}'`;
     // Create a diagnostic at the determined position.
-    return new vscode.Diagnostic(
+    const d = new vscode.Diagnostic(
       lineRange,
       message,
       vscode.DiagnosticSeverity.Warning
     );
+    d.source = 'missingDocs';
+    return d;
   });
   // Order diagnostics by their position in the document
   diagnostics.sort((a, b) => a.range.start.line - b.range.start.line || a.range.start.character - b.range.start.character);
@@ -216,12 +217,6 @@ export class MissingDocCodeActionProvider implements vscode.CodeActionProvider {
     const missingSymbols = userDefinedSymbols.filter(sym => {
       return !mdSymbols.some(mdSym => mdSym.name.trim().toLowerCase().includes(sym.name.trim().toLowerCase()));
     });
-
-    // Check if this document is marked as ignored
-    if (isDocIgnored(this.context, document.uri)) {
-      diagnosticCollection.delete(document.uri);
-      return;
-    }
     
     if (missingSymbols.length === 0) {
       diagnosticCollection.delete(document.uri);
@@ -235,6 +230,7 @@ export class MissingDocCodeActionProvider implements vscode.CodeActionProvider {
 
     // Filter diagnostics for missing documentation that intersect with the current range
     const relevantDiagnostics = context.diagnostics.filter(diag =>
+      diag.source === 'missingDocs' &&
       diag.message.startsWith("Missing documentation for function") &&
       diag.range.intersection(range)
     );
@@ -250,12 +246,24 @@ export class MissingDocCodeActionProvider implements vscode.CodeActionProvider {
       insertOneAction.diagnostics = [diagnostic];
       
       insertOneAction.command = {
-        title: "Insert Missing Documentation",
+        title: "Insert Current Missing Documentation Section",
         command: "doc-helper-0711.insertMissingDocs",
         arguments: [document.uri, [diagnostic]] // Pass the specific diagnostic
       };
       insertOneAction.isPreferred = true;
       actions.push(insertOneAction);
+
+      // Also add an ignore action so the user can choose to dismiss the warnings.
+      const ignoreAction = new vscode.CodeAction(
+        "Ignore missing documentation warnings",
+        vscode.CodeActionKind.QuickFix
+      );
+      ignoreAction.command = {
+        title: "Ignore Missing Documentation Warnings",
+        command: "doc-helper-0711.ignoreMissingDocs",
+        arguments: [document.uri, [diagnostic]]
+      };
+      actions.push(ignoreAction);
     });
 
     // Create a CodeAction to let the user insert missing documentation
@@ -264,24 +272,12 @@ export class MissingDocCodeActionProvider implements vscode.CodeActionProvider {
       vscode.CodeActionKind.QuickFix
     );
     insertAction.command = {
-      title: "Insert Missing Documentation",
+      title: "Insert ALL Missing Documentation Sections",
       command: "doc-helper-0711.insertAllMissingDocs",
       arguments: [document.uri, missingSymbols]
     };
     insertAction.isPreferred = true;
     actions.push(insertAction);
-
-    // Also add an ignore action so the user can choose to dismiss the warnings.
-    const ignoreAction = new vscode.CodeAction(
-      "Ignore missing documentation warnings",
-      vscode.CodeActionKind.QuickFix
-    );
-    ignoreAction.command = {
-      title: "Ignore missing documentation warnings",
-      command: "doc-helper-0711.ignoreMissingDocs",
-      arguments: [document.uri]
-    };
-    actions.push(ignoreAction);
 
     return actions;
   }
@@ -486,18 +482,36 @@ vscode.commands.registerCommand(
 );
 
 // Command to ignore missing documentation warnings by clearing the diagnostics.
-vscode.commands.registerCommand("doc-helper-0711.ignoreMissingDocs", async (docUri: vscode.Uri) => {
-  // Pop up a confirmation message with Yes/No options
-  const result = await vscode.window.showWarningMessage(
-    "Are you sure you want to ignore missing documentation warnings for this file?",
-    {modal: true},
-    "Yes",
-    "No"
-  );
-  if (result !== "Yes") {
-    return;
+vscode.commands.registerCommand("doc-helper-0711.ignoreMissingDocs", 
+  async (docUri: vscode.Uri, diagnostics: vscode.Diagnostic[]) => {
+    // Pop up a confirmation message with Yes/No options
+    const result = await vscode.window.showWarningMessage(
+      "Are you sure you want to ignore missing documentation warnings for this file?",
+      {modal: true},
+      "Yes",
+      "No"
+    );
+    if (result !== "Yes") {
+      return;
+    }
+
+    // Use the specific diagnostic passed from the quick fix
+    if (!diagnostics || diagnostics.length === 0) {
+      vscode.window.showInformationMessage("No diagnostic selected to fix.");
+      return;
+    }
+    const diagToFix = diagnostics[0];
+
+    // Parse the function name from the diagnostic message
+    const regex = /Missing documentation for function '([^']+)'/;
+    const match = diagToFix.message.match(regex);
+    if (!match) {
+      vscode.window.showErrorMessage("Could not parse function name from diagnostic.");
+      return;
+    }
+    const funcName = match[1];
+
+    // add to ignored‐symbols list
+    await addIgnoredSymbol(globalContext, docUri, funcName);
   }
-  diagnosticCollection.delete(docUri);
-  // ignore = true;
-  await addIgnoredDoc(globalContext, docUri);
-});
+);

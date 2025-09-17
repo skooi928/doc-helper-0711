@@ -1,0 +1,377 @@
+import * as vscode from 'vscode';
+
+let globalContext: vscode.ExtensionContext;
+
+// Create a Diagnostic Collection for numbering issues
+const diagnosticCollection = vscode.languages.createDiagnosticCollection('docHelper');
+
+// Interface for heading information
+interface HeadingInfo {
+  symbol: vscode.DocumentSymbol;
+  level: number;
+  number: number | null;
+  text: string;
+  line: number;
+}
+
+// Extract numbering from heading text
+function extractNumberFromHeading(headingText: string): number | null {
+  // 1) Remove any leading markdown header markers (e.g. "### ")
+  const text = headingText.replace(/^#+\s*/, '').trim();
+  // 2) Match a number at the very start, followed by '.', ')', or whitespace
+  const match = text.match(/^(\d+)(?:[.)]\s*|\s+)/);
+  return match ? parseInt(match[1], 10) : null;
+}
+
+// Analyze headings and find numbering issues
+function analyzeNumberingSequence(headings: HeadingInfo[]): { missing: number[], duplicates: { number: number, lines: number[] }[] } {
+  const issues = { missing: [] as number[], duplicates: [] as { number: number, lines: number[] }[] };
+  
+  if (headings.length === 0) {
+    return issues;
+  }
+  
+  // Group headings by level to handle different sections
+  const headingsByLevel = new Map<number, HeadingInfo[]>();
+  for (const heading of headings) {
+    if (!headingsByLevel.has(heading.level)) {
+      headingsByLevel.set(heading.level, []);
+    }
+    headingsByLevel.get(heading.level)!.push(heading);
+  }
+  
+  // Analyze each level separately
+  for (const [level, levelHeadings] of headingsByLevel) {
+    const numberedHeadings = levelHeadings.filter(h => h.number !== null);
+
+    if (numberedHeadings.length < 2) {
+      continue; // Need at least 2 numbered headings to check sequence
+    }
+
+    // Sort by line number to maintain document order
+    numberedHeadings.sort((a, b) => a.line - b.line);
+    
+    // Check for duplicates
+    const numberCounts = new Map<number, number[]>();
+    for (const heading of numberedHeadings) {
+      const num = heading.number!;
+      if (!numberCounts.has(num)) {
+        numberCounts.set(num, []);
+      }
+      numberCounts.get(num)!.push(heading.line);
+    }
+    
+    for (const [num, lines] of numberCounts) {
+      if (lines.length > 1) {
+        issues.duplicates.push({ number: num, lines });
+      }
+    }
+    
+    // Check for missing numbers in sequence
+    const numbers = numberedHeadings.map(h => h.number!).sort((a, b) => a - b);
+    const min = Math.min(...numbers);
+    const max = Math.max(...numbers);
+    
+    // Check for missing numbers if it looks like a continuous sequence
+    if (max - min >= numbers.length) {
+      for (let i = min; i <= max; i++) {
+        if (!numbers.includes(i)) {
+          issues.missing.push(i);
+        }
+      }
+    }
+  }
+  
+  return issues;
+}
+
+// Extract heading information from document symbols
+async function extractHeadingInfo(document: vscode.TextDocument): Promise<HeadingInfo[]> {
+  const symbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[]>(
+    'vscode.executeDocumentSymbolProvider', 
+    document.uri
+  );
+  
+  if (!symbols) {
+    return [];
+  }
+  
+  const headings: HeadingInfo[] = [];
+  
+  function processSymbol(symbol: vscode.DocumentSymbol, level: number = 1) {
+    // Check if this is a heading (usually SymbolKind.String or SymbolKind.Namespace for markdown)
+    if (symbol.kind === vscode.SymbolKind.String || 
+        symbol.kind === vscode.SymbolKind.Namespace ||
+        symbol.kind === vscode.SymbolKind.Module) {
+      
+      const number = extractNumberFromHeading(symbol.name);
+      headings.push({
+        symbol,
+        level,
+        number,
+        text: symbol.name,
+        line: symbol.range.start.line
+      });
+    }
+    
+    // Process children with increased level
+    if (symbol.children) {
+      for (const child of symbol.children) {
+        processSymbol(child, level + 1);
+      }
+    }
+  }
+  
+  for (const symbol of symbols) {
+    processSymbol(symbol);
+  }
+
+  return headings.sort((a, b) => a.line - b.line);
+}
+
+// Update diagnostics for numbering issues
+async function updateNumberingDiagnostics(document: vscode.TextDocument) {
+  // Only process markdown files
+  if (document.languageId !== 'markdown') {
+    return;
+  }
+  
+  const headings = await extractHeadingInfo(document);
+  
+  const issues = analyzeNumberingSequence(headings);
+  
+  const diagnostics: vscode.Diagnostic[] = [];
+  
+  // Create diagnostics for missing numbers
+  for (const missingNum of issues.missing) {
+    // Find the best position to show the diagnostic (after the previous number or before the next)
+    const headingsWithNumbers = headings.filter(h => h.number !== null);
+    let targetHeading: HeadingInfo | null = null;
+    
+    // Find heading that comes after the missing number
+    for (const heading of headingsWithNumbers) {
+      if (heading.number! > missingNum) {
+        targetHeading = heading;
+        break;
+      }
+    }
+    
+    // If no heading found after missing number, use the last numbered heading
+    if (!targetHeading && headingsWithNumbers.length > 0) {
+      targetHeading = headingsWithNumbers[headingsWithNumbers.length - 1];
+    }
+    
+    if (targetHeading) {
+      const range = targetHeading.symbol.range;
+      const message = `Missing number ${missingNum} in heading sequence`;
+      const d = new vscode.Diagnostic(
+        range,
+        message,
+        vscode.DiagnosticSeverity.Warning
+      );
+      d.source = 'numberingChecker';
+      diagnostics.push(d);
+    }
+  }
+  
+  // Create diagnostics for duplicate numbers
+  for (const duplicate of issues.duplicates) {
+    for (let i = 1; i < duplicate.lines.length; i++) { // Skip first occurrence
+      const heading = headings.find(h => h.line === duplicate.lines[i]);
+      if (heading) {
+        const range = heading.symbol.range;
+        const message = `Duplicate number ${duplicate.number} in heading sequence`;
+      const d = new vscode.Diagnostic(
+        range,
+        message,
+        vscode.DiagnosticSeverity.Warning
+      );
+      d.source = 'numberingChecker';
+      diagnostics.push(d);
+      }
+    }
+  }
+  
+  diagnosticCollection.set(document.uri, diagnostics);
+}
+
+// Code Action Provider for numbering issues
+export class WrongNumberingCodeActionProvider implements vscode.CodeActionProvider {
+  constructor(private context: vscode.ExtensionContext) {}
+
+  async provideCodeActions(
+    document: vscode.TextDocument,
+    range: vscode.Range,
+    context: vscode.CodeActionContext,
+    token: vscode.CancellationToken
+  ): Promise<vscode.CodeAction[] | undefined> {
+    
+    // Only process markdown files
+    if (document.languageId !== 'markdown') {
+      return;
+    }
+
+    // Update diagnostics before providing actions
+    await updateNumberingDiagnostics(document);
+    
+    const actions: vscode.CodeAction[] = [];
+    
+    // Filter diagnostics for numbering issues that intersect with the current range
+    const relevantDiagnostics = context.diagnostics.filter(diag =>
+      diag.source === 'numberingChecker' &&
+      (diag.message.includes("Missing number") || diag.message.includes("Duplicate number")) &&
+      diag.range.intersection(range)
+    );
+
+    // console.log("Relevant diagnostics:", context.diagnostics);
+    
+    if (relevantDiagnostics.length === 0) {
+      return actions;
+    }
+    
+    // Create quick fixes for each diagnostic
+    relevantDiagnostics.forEach(diagnostic => {
+      if (diagnostic.message.includes("Missing number")) {
+        const fixAction = new vscode.CodeAction(
+          "Fix missing number in sequence",
+          vscode.CodeActionKind.QuickFix
+        );
+        fixAction.diagnostics = [diagnostic];
+        fixAction.command = {
+          title: "Fix missing number",
+          command: "doc-helper-0711.fixMissingNumber",
+          arguments: [document.uri, diagnostic]
+        };
+        actions.push(fixAction);
+      } else if (diagnostic.message.includes("Duplicate number")) {
+        const fixAction = new vscode.CodeAction(
+          "Fix duplicate number in sequence",
+          vscode.CodeActionKind.QuickFix
+        );
+        fixAction.diagnostics = [diagnostic];
+        fixAction.command = {
+          title: "Fix duplicate number",
+          command: "doc-helper-0711.fixDuplicateNumber",
+          arguments: [document.uri, diagnostic]
+        };
+        actions.push(fixAction);
+      }
+    });
+    
+    // Add action to renumber all headings
+    const renumberAllAction = new vscode.CodeAction(
+      "Renumber all headings in sequence",
+      vscode.CodeActionKind.QuickFix
+    );
+    renumberAllAction.command = {
+      title: "Renumber all headings",
+      command: "doc-helper-0711.renumberAllHeadings",
+      arguments: [document.uri]
+    };
+    actions.push(renumberAllAction);
+    
+    return actions;
+  }
+}
+
+// Register the provider and set up document change listeners
+export function registerWrongNumberingCodeActions(context: vscode.ExtensionContext): vscode.Disposable {
+  globalContext = context;
+  const provider = new WrongNumberingCodeActionProvider(context);
+  
+  // Register the code action provider
+  const disposable = vscode.languages.registerCodeActionsProvider(
+    { language: "markdown", scheme: "file" },
+    provider,
+    { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }
+  );
+  
+  context.subscriptions.push(
+    disposable
+  );
+  
+  return disposable;
+}
+
+// Command to fix missing number
+vscode.commands.registerCommand(
+  "doc-helper-0711.fixMissingNumber",
+  async (docUri: vscode.Uri, diagnostic: vscode.Diagnostic) => {
+    const document = await vscode.workspace.openTextDocument(docUri);
+    const editor = await vscode.window.showTextDocument(document);
+    
+    // Extract missing number from diagnostic message
+    const match = diagnostic.message.match(/Missing number (\d+)/);
+    if (!match) {
+      return;
+    }
+    
+    const missingNumber = parseInt(match[1], 10);
+    
+    // Insert a placeholder heading with the missing number
+    const insertPos = diagnostic.range.start;
+    const snippetText = `### ${missingNumber}. [Missing Section]\n\n`;
+    
+    await editor.edit(editBuilder => {
+      editBuilder.insert(insertPos, snippetText);
+    });
+    
+    vscode.window.showInformationMessage(`Inserted placeholder for missing number ${missingNumber}`);
+  }
+);
+
+// Command to fix duplicate number
+vscode.commands.registerCommand(
+  "doc-helper-0711.fixDuplicateNumber",
+  async (docUri: vscode.Uri, diagnostic: vscode.Diagnostic) => {
+    const document = await vscode.workspace.openTextDocument(docUri);
+    const editor = await vscode.window.showTextDocument(document);
+    
+    // Get the heading text and find the next available number
+    const headings = await extractHeadingInfo(document);
+    const allNumbers = headings.filter(h => h.number !== null).map(h => h.number!);
+    const maxNumber = Math.max(...allNumbers);
+    const nextNumber = maxNumber + 1;
+    
+    // Replace the duplicate number with the next available number
+    const headingText = document.lineAt(diagnostic.range.start.line).text;
+    const newText = headingText.replace(/(\d+)/, nextNumber.toString());
+    
+    await editor.edit(editBuilder => {
+      editBuilder.replace(diagnostic.range, newText);
+    });
+    
+    vscode.window.showInformationMessage(`Changed duplicate number to ${nextNumber}`);
+  }
+);
+
+// Command to renumber all headings
+vscode.commands.registerCommand(
+  "doc-helper-0711.renumberAllHeadings",
+  async (docUri: vscode.Uri) => {
+    const document = await vscode.workspace.openTextDocument(docUri);
+    const editor = await vscode.window.showTextDocument(document);
+    
+    const headings = await extractHeadingInfo(document);
+    const numberedHeadings = headings.filter(h => h.number !== null);
+    
+    if (numberedHeadings.length === 0) {
+      vscode.window.showInformationMessage("No numbered headings found to renumber.");
+      return;
+    }
+    
+    // Sort by line number and renumber sequentially
+    numberedHeadings.sort((a, b) => a.line - b.line);
+    
+    await editor.edit(editBuilder => {
+      numberedHeadings.forEach((heading, index) => {
+        const newNumber = index + 1;
+        const line = document.lineAt(heading.line);
+        const newText = line.text.replace(/\d+/, newNumber.toString());
+        editBuilder.replace(line.range, newText);
+      });
+    });
+    
+    vscode.window.showInformationMessage(`Renumbered ${numberedHeadings.length} headings sequentially.`);
+  }
+);
