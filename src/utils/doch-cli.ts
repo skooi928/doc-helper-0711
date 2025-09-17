@@ -1,12 +1,16 @@
 import { promises as fs } from 'fs';
 import * as path from 'path';
-import * as vscode from 'vscode';
+import * as os from 'os';
 
 export interface DocState {
   [sourceRel: string]: {
     documented: boolean;
     timestamp: string;
   };
+}
+
+interface VSCodeSettings {
+  'doc-helper-0711.docsDirectory'?: string;
 }
 
 async function ensureMetaDir(root: string) {
@@ -33,11 +37,53 @@ async function saveDocState(root: string, state: DocState) {
   await fs.writeFile(filePath, JSON.stringify(state, null, 2), 'utf8');
 }
 
+function getUserSettingsPath(): string {
+  const platform = os.platform();
+  const homeDir = os.homedir();
+  
+  switch (platform) {
+    case 'win32':
+      return path.join(homeDir, 'AppData', 'Roaming', 'Code', 'User', 'settings.json');
+    case 'darwin':
+      return path.join(homeDir, 'Library', 'Application Support', 'Code', 'User', 'settings.json');
+    default:
+      return path.join(homeDir, 'AppData', 'Roaming', 'Code', 'User', 'settings.json');
+  }
+}
+
+async function getDocsDirectoryFromVSCode(root: string): Promise<string> {
+  const defaultDocsDir = 'docs/';
+  
+  try {
+    // Try workspace settings first
+    const workspaceSettingsPath = path.join(root, '.vscode', 'settings.json');
+    
+    for (const settingsPath of [workspaceSettingsPath, getUserSettingsPath()]) {
+      try {
+        const content = await fs.readFile(settingsPath, 'utf8');
+        // Remove JSON comments (VS Code allows them)
+        const cleanContent = content.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '');
+        const settings = JSON.parse(cleanContent);
+        
+        const docsDir = settings['doc-helper-0711.docsDirectory'];
+        if (docsDir) {
+          return docsDir;
+        }
+      } catch {
+        // Continue to next settings file
+      }
+    }
+    
+    return defaultDocsDir;
+  } catch {
+    return defaultDocsDir;
+  }
+}
+
 export async function driftNode(files: string[], root: string) {
   const state = await loadDocState(root);
 
-  const config = vscode.workspace.getConfiguration('docHelper');
-  const docsDirectory = config.get<string>('saveDirectory') || 'docs/';
+  const docsDirectory = await getDocsDirectoryFromVSCode(root);
 
   for (const rel of files) {
     const docRel = rel.replace(/^src[\/\\]/, docsDirectory).replace(/\.(ts|js|tsx)$/, '.md');
@@ -57,8 +103,7 @@ export async function driftNode(files: string[], root: string) {
 export async function checkNode(files: string[], root: string) {
   const state = await loadDocState(root);
 
-  const config = vscode.workspace.getConfiguration('docHelper');
-  const docsDirectory = config.get<string>('saveDirectory') || 'docs/';
+  const docsDirectory = await getDocsDirectoryFromVSCode(root);
   
   for (const docRel of files) {
     const srcRel = docRel.replace(new RegExp('^' + docsDirectory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), 'src/').replace(/\.md$/, '.ts');
