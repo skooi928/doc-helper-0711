@@ -411,22 +411,51 @@ vscode.commands.registerCommand(
   async (docUri: vscode.Uri, diagnostic: vscode.Diagnostic) => {
     const document = await vscode.workspace.openTextDocument(docUri);
     const editor = await vscode.window.showTextDocument(document);
-    
-    // Get the heading text and find the next available number
+
+    // Extract level from diagnostic message
+    const match = diagnostic.message.match(/Duplicate number (\d+) in heading sequence \(level (\d+)\)/);
+    if (!match) {
+      vscode.window.showErrorMessage("Could not parse duplicate number and level from diagnostic.");
+      return;
+    }
+    const dupNumber = parseInt(match[1], 10);
+    const level = parseInt(match[2], 10);
+
+    // Get all headings at that level
     const headings = await extractHeadingInfo(document);
-    const allNumbers = headings.filter(h => h.number !== null).map(h => h.number!);
+    const levelHeadings = headings
+      .filter(h => h.number !== null && h.level === level)
+      .sort((a, b) => a.line - b.line);
+
+    if (levelHeadings.length === 0) {
+      vscode.window.showInformationMessage(`No headings at level ${level} to renumber.`);
+      return;
+    }
+
+    // Find the max existing number in that level
+    const allNumbers = levelHeadings.map(h => h.number!);
     const maxNumber = Math.max(...allNumbers);
     const nextNumber = maxNumber + 1;
-    
-    // Replace the duplicate number with the next available number
-    const headingText = document.lineAt(diagnostic.range.start.line).text;
-    const newText = headingText.replace(/(\d+)/, nextNumber.toString());
-    
+
+    // Replace the duplicate occurrence
+    const lineIdx = diagnostic.range.start.line;
+    const lineText = document.lineAt(lineIdx).text;
+    // Only replace the first occurrence of the duplicate number on that line
+    const newText = lineText.replace(
+      new RegExp(`\\b${dupNumber}\\b`),
+      nextNumber.toString()
+    );
+
     await editor.edit(editBuilder => {
-      editBuilder.replace(diagnostic.range, newText);
+      editBuilder.replace(
+        new vscode.Range(lineIdx, 0, lineIdx, lineText.length),
+        newText
+      );
     });
-    
-    vscode.window.showInformationMessage(`Changed duplicate number to ${nextNumber}`);
+
+    vscode.window.showInformationMessage(
+      `Replaced duplicate number ${dupNumber} with ${nextNumber} on level ${level}`
+    );
   }
 );
 
