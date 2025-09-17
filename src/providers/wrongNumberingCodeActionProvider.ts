@@ -101,9 +101,9 @@ function analyzeNumberingSequence(headings: HeadingInfo[]): { missing: { number:
     const min = Math.min(...numbers);
     const max = Math.max(...numbers);
     
-    // Check for missing numbers if it looks like a continuous sequence
-    if (max - min >= numbers.length) {
-      for (let i = min; i <= max; i++) {
+    // Check for missing numbers if it looks like a continuous sequence, and it must start with 1
+    if (min !== 1 || max - min >= numbers.length) {
+      for (let i = 1; i <= max; i++) {
         if (!numbers.includes(i)) {
           issues.missing.push({number: i, level: level });
         }
