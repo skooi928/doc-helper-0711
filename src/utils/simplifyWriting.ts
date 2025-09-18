@@ -35,7 +35,7 @@ export async function generateDocumentation(sourceUri: vscode.Uri) {
       const { extensions, regex, sourceDirectories } = await getWorkspaceConfig(folder);
 
       // If extension found is not same as file extension, warn user
-      if (!extensions.includes("."+language)) {
+      if (!extensions.includes(language.replace(/^\./, ''))) {
         vscode.window.showWarningMessage(`File extension '.${language}' is not in the allowed list: ${extensions.join(', ')}`);
         // stop here
         throw new Error('File extension not allowed. Try configure inside config.yml.');
