@@ -54,23 +54,28 @@ export function registerFileLinkingProviders(context: vscode.ExtensionContext) {
         return links;
       }
 
-      // Get corresponding source file path
-      const sourceBase = docPath
-        .replace(new RegExp('^' + docsDirectory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), 'src/')
-        .replace(/\.md$/, '');
-
-      // Try to find the corresponding source file
-      const { extensions: sourceExts } = await getWorkspaceConfig(workspaceFolder);
       let sourceUri: vscode.Uri | undefined;
-      
-      for (const ext of sourceExts) {
-        const candidateUri = vscode.Uri.joinPath(workspaceFolder.uri, `${sourceBase}.${ext}`);
-        try {
-          await vscode.workspace.fs.stat(candidateUri);
-          sourceUri = candidateUri;
+      const { extensions: sourceExts, sourceDirectories } = await getWorkspaceConfig(workspaceFolder);
+
+      for (const dir of sourceDirectories) {
+        // Get corresponding source file path
+        const sourceBase = docPath
+          .replace(new RegExp('^' + docsDirectory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${dir}/`)
+          .replace(/\.md$/, '');
+
+        // Try to find the corresponding source file
+        for (const ext of sourceExts) {
+          const candidateUri = vscode.Uri.joinPath(workspaceFolder.uri, `${sourceBase}.${ext}`);
+          try {
+            await vscode.workspace.fs.stat(candidateUri);
+            sourceUri = candidateUri;
+            break;
+          } catch {
+            // File doesn't exist
+          }
+        }
+        if (sourceUri) {
           break;
-        } catch {
-          // File doesn't exist
         }
       }
 

@@ -60,7 +60,7 @@ export class FileStatusProvider implements vscode.TreeDataProvider<FileStatusIte
     const workspaceFolder = folders[0];
 
     // Get dynamic config
-    const { extensions, regex } = await getWorkspaceConfig(workspaceFolder);
+    const { extensions, regex, sourceDirectories } = await getWorkspaceConfig(workspaceFolder);
     
     // Load .doch metadata state - same as extension.ts loadState()
     async function loadState(): Promise<Record<string, { documented: boolean; timestamp: string }>> {
@@ -119,9 +119,15 @@ export class FileStatusProvider implements vscode.TreeDataProvider<FileStatusIte
 
       if (regex.test(rel)) {
         // Source file logic - matches extension.ts updateStatus exactly
-        const docRel = rel
-          .replace(/^src[\/\\]/, docsDirectory)
-          .replace(regex, '.md');
+        let docRel = '';
+        for (const dir of sourceDirectories) {
+          const regexDir = new RegExp('^' + dir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '/');
+          if (regexDir.test(rel)) {
+            docRel = rel
+              .replace(regexDir, docsDirectory)
+              .replace(regex, '.md');
+          }
+        }
         const docUri = vscode.Uri.joinPath(root, ...docRel.split(/[\\/]/));
         
         let docExists = false;
@@ -155,26 +161,33 @@ export class FileStatusProvider implements vscode.TreeDataProvider<FileStatusIte
 
       } else if (/\.md$/.test(rel)) {
         // Markdown file logic - matches extension.ts updateStatus exactly
-        const base = rel
-          .replace(new RegExp('^' + docsDirectory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), 'src/')
-          .replace(/\.md$/, '');
-
-
         let foundExt: string|undefined;
-        for (const ext of extensions) {
-          const candidate = `${base}.${ext}`;
-          try {
-            await vscode.workspace.fs.stat(
-              vscode.Uri.joinPath(root, ...candidate.split(/[\\/]/))
-            );
-            foundExt = ext;
+        let srcRel: string|undefined;
+
+        for (const dir of sourceDirectories) {
+          const base = rel
+            .replace(new RegExp('^' + docsDirectory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${dir}/`)
+            .replace(/\.md$/, '');
+
+          for (const ext of extensions) {
+            const candidate = `${base}.${ext}`;
+            try {
+              await vscode.workspace.fs.stat(
+                vscode.Uri.joinPath(root, ...candidate.split(/[\\/]/))
+              );
+              foundExt = ext;
+              srcRel = candidate;
+              break;
+            } catch {
+              // not found, keep looking
+            }
+          }
+          if (foundExt && srcRel) {
             break;
-          } catch {
-            // not found, keep looking
           }
         }
 
-        if (!foundExt) {
+        if (!foundExt || !srcRel) {
           // Check if this is under docs/ or completely independent
           if (rel.startsWith(docsDirectory)) {
             status = 'No Source'; // "No matched source"
@@ -182,7 +195,6 @@ export class FileStatusProvider implements vscode.TreeDataProvider<FileStatusIte
             status = 'Independent'; // Independent markdown
           }
         } else {
-          const srcRel = `${base}.${foundExt}`;
           const codeUri = vscode.Uri.joinPath(root, ...srcRel.split(/[\\/]/));
           const srcStat = await vscode.workspace.fs.stat(codeUri);
           const codeTime = Math.max(srcStat.ctime, srcStat.mtime);
