@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as yaml from 'js-yaml';
 
 /* These templates assume you'll implement commands like 
 doch check, doch suggest, doch drift, and doch dependencies 
@@ -8,50 +9,11 @@ The hooks provide the integration points with git workflow. */
 
 const TEMPLATE_CONFIG = `\
 # .doch/config.yml
-# Code and documentation patterns to monitor
+# Source code file to monitor
 codeGlobs:
   - "src/**/*.ts"
   - "src/**/*.js"
   - "src/**/*.tsx"
-docGlobs:
-  - "docs/**/*.md"
-
-# Staleness detection
-staleThresholdDays: 3
-staleDetection:
-  enabled: true
-  severity: "warning"  # warning, error, or info
-  checkOnSave: true
-  checkOnBuild: true
-
-# Dependency tracking
-dependencies:
-  trackImports: true
-  notifyOnChange: true
-  componentMap: ".doch/metadata/component-map.json"
-
-# Notifications
-notify:
-  onStale: "vscode.window.showWarningMessage"
-  onComponentChange: "vscode.window.showInformationMessage"
-  viaEmail: false
-  emailConfig: ".doch/metadata/email-config.json"
-  viaPRComment: true
-
-# Suggestion generation
-suggestions:
-  enabled: true
-  useAI: true
-  aiModel: "openai/gpt-4"
-  promptTemplate: ".doch/templates/update-snippets/default-prompt.md"
-  outputDir: ".doch/suggestions"
-
-# Diff settings for change detection
-diff:
-  tool: "git-diff"
-  contextLines: 3
-  ignoreWhitespace: true
-  trackRenames: true
 `;
 
 // Files and directories to ignore
@@ -194,4 +156,101 @@ export function watchDocState(onChange: () => void): vscode.Disposable {
   watcher.onDidChange(onChange);
   watcher.onDidDelete(onChange);
   return watcher;
+}
+
+// Read doch config.yml file
+export interface DochConfig {
+  codeGlobs: string[];
+}
+
+async function readDochConfig(workspaceFolder: vscode.WorkspaceFolder): Promise<DochConfig> {
+  const configUri = vscode.Uri.joinPath(workspaceFolder.uri, '.doch', 'config.yml');
+  
+  try {
+    const configBuffer = await vscode.workspace.fs.readFile(configUri);
+    const configContent = Buffer.from(configBuffer).toString('utf8');
+    const config = yaml.load(configContent) as DochConfig;
+    
+    return config || { codeGlobs: ["src/**/*.ts", "src/**/*.js", "src/**/*.tsx"] };
+  } catch (error) {
+    // Fallback to default config
+    return { codeGlobs: ["src/**/*.ts", "src/**/*.js", "src/**/*.tsx"] };
+  }
+}
+
+function extractExtensionsFromGlobs(globs: string[]): string[] {
+  const extensions = new Set<string>();
+  
+  globs.forEach(glob => {
+    // Extract extensions from patterns like "src/**/*.ts", "**/*.{ts,js}", etc.
+    const matches = glob.match(/\*\.(\w+|\{[\w,]+\})/g);
+    if (matches) {
+      matches.forEach(match => {
+        const ext = match.replace('*.', '');
+        if (ext.startsWith('{') && ext.endsWith('}')) {
+          // Handle {ts,js,tsx} format
+          const exts = ext.slice(1, -1).split(',');
+          exts.forEach(e => extensions.add(e.trim()));
+        } else {
+          extensions.add(ext);
+        }
+      });
+    }
+  });
+  
+  return Array.from(extensions);
+}
+
+function buildFileExtensionRegex(extensions: string[]): RegExp {
+  const escapedExts = extensions.map(ext => ext.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  return new RegExp(`\\.(${escapedExts.join('|')})$`);
+}
+
+// Cache for configs per workspace
+const configCache = new Map<string, { extensions: string[], regex: RegExp }>();
+
+export async function getWorkspaceConfig(workspaceFolder: vscode.WorkspaceFolder): Promise<{ extensions: string[], regex: RegExp }> {
+  const key = workspaceFolder.uri.toString();
+  
+  if (!configCache.has(key)) {
+    const config = await readDochConfig(workspaceFolder);
+    const extensions = extractExtensionsFromGlobs(config.codeGlobs);
+    const regex = buildFileExtensionRegex(extensions);
+    
+    configCache.set(key, { extensions, regex });
+  }
+  
+  return configCache.get(key)!;
+}
+
+export function clearConfigCache(): void {
+  configCache.clear();
+}
+
+export function createConfigWatcher(context: vscode.ExtensionContext, onConfigChange?: () => void): vscode.FileSystemWatcher {
+  const configWatcher = vscode.workspace.createFileSystemWatcher('**/.doch/config.yml');
+  
+  configWatcher.onDidChange(() => {
+    clearConfigCache(); // Clear cache to reload config
+    if (onConfigChange) {
+      onConfigChange();
+    }
+  });
+  
+  configWatcher.onDidCreate(() => {
+    clearConfigCache();
+    if (onConfigChange) {
+      onConfigChange();
+    }
+  });
+  
+  configWatcher.onDidDelete(() => {
+    clearConfigCache();
+    if (onConfigChange) {
+      onConfigChange();
+    }
+  });
+  
+  context.subscriptions.push(configWatcher);
+  return configWatcher;
 }

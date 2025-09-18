@@ -238,29 +238,29 @@
       ]
     },
     "configuration": {
-        "title": "Doc Helper",
-        "properties": {
-          "docHelper.geminiApiKey": {
-            "type": "string",
-            "default": "",
-            "description": "Key in your own Gemini API Key to access QnA chatbot service"
-          },
-          "docHelper.saveDirectory": {
-            "type": "string",
-            "default": "docs/",
-            "description": "Default folder path to save all your documentations"
-          },
-          "docHelper.hyperlinkUnderline": {
-            "type": "boolean",
-            "default": false,
-            "description": "Enable underline for hyperlinking between code and documentation files"
-          },
-          "docHelper.enableGhostSuggestion": {
-            "type": "boolean",
-            "default": true,
-            "description": "Enable ghost text suggestions for documentation writing"
-          }
+      "title": "Doc Helper",
+      "properties": {
+        "docHelper.geminiApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Key in your own Gemini API Key to access QnA chatbot service"
+        },
+        "docHelper.saveDirectory": {
+          "type": "string",
+          "default": "docs/",
+          "description": "Default folder path to save all your documentations"
+        },
+        "docHelper.hyperlinkUnderline": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable underline for hyperlinking between code and documentation files"
+        },
+        "docHelper.enableGhostSuggestion": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable ghost text suggestions for documentation writing"
         }
+      }
     }
   },
   "bin": {
@@ -282,6 +282,7 @@
     "test": "vscode-test"
   },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
     "@types/vscode": "^1.103.0",
@@ -295,6 +296,7 @@
     "typescript": "^5.9.2"
   },
   "dependencies": {
-    "ignore": "^7.0.5"
+    "ignore": "^7.0.5",
+    "js-yaml": "^4.1.0"
   }
 }

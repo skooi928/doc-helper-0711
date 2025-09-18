@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { initDochRepo, updateDochContext, watchDocState } from './utils/doch';
+import { initDochRepo, updateDochContext, watchDocState, getWorkspaceConfig, createConfigWatcher } from './utils/doch';
 import { ChatbotViewProvider } from './providers/chatbotViewProvider'; 
 import { FileStatusItem, FileStatusProvider } from './providers/fileStatusProvider';
 import { registerFileLinkingProviders } from './providers/fileLinkingProvider';
@@ -36,6 +36,10 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
   context.subscriptions.push(initCmd);
+
+  createConfigWatcher(context, () => {
+    updateStatus(vscode.window.activeTextEditor); // Refresh status when config changes
+  });
 
   // Webview after the doch repo is initialized
 	const chatbotViewProvider = new ChatbotViewProvider(context.extensionUri); 
@@ -133,6 +137,13 @@ export function activate(context: vscode.ExtensionContext) {
   codeWatcher.onDidDelete(() => fileStatusProvider.refresh());
   context.subscriptions.push(codeWatcher);
 
+  // Refresh when config.yml changes
+  const configymlWatcher = vscode.workspace.createFileSystemWatcher('**/.doch/config.yml');
+  configymlWatcher.onDidCreate(() => fileStatusProvider.refresh());
+  configymlWatcher.onDidChange(() => fileStatusProvider.refresh());
+  configymlWatcher.onDidDelete(() => fileStatusProvider.refresh());
+  context.subscriptions.push(configymlWatcher);
+
   // Refresh when doc-state.json changes
   const docStateWatcher = vscode.workspace.createFileSystemWatcher('**/.doch/metadata/doc-state.json');
   docStateWatcher.onDidCreate(() => fileStatusProvider.refresh());
@@ -148,7 +159,6 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(dochIgnoreWatcher);
 
   const config = vscode.workspace.getConfiguration('docHelper');
-  const docsDirectory = config.get<string>('saveDirectory') || 'docs/';
 
   // Command to open respective docs from code file or vice versa
   const openRespectiveDocs = vscode.commands.registerCommand('doc-helper-0711.openRespectiveDocs', async (uri?: vscode.Uri) => {
@@ -166,11 +176,16 @@ export function activate(context: vscode.ExtensionContext) {
     const folder = workspaceFolders[0];
     const relPath = vscode.workspace.asRelativePath(activeUri, false).replace(/\\/g, '/');
 
+    const docsDirectory = config.get<string>('saveDirectory') || 'docs/';
+
+    // Get language format from dynamic config
+    const { extensions, regex } = await getWorkspaceConfig(folder);
+
     // code → docs
-    if (/\.(ts|js|tsx|jsx)$/.test(relPath)) {
+    if (regex.test(relPath)) {
       const docRel = relPath
         .replace(/^src\//, docsDirectory)
-        .replace(/\.(ts|js|tsx|jsx)$/, '.md');
+        .replace(regex, '.md');
       const docUri = vscode.Uri.joinPath(folder.uri, ...docRel.split('/'));
       try {
         await vscode.workspace.fs.stat(docUri);
@@ -195,9 +210,9 @@ export function activate(context: vscode.ExtensionContext) {
       const base = relPath
         .replace(new RegExp('^' + docsDirectory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), 'src/')
         .replace(/\.md$/, '');
-      const exts = ['ts', 'js', 'tsx', 'jsx'];
+
       let found = false;
-      for (const ext of exts) {
+      for (const ext of extensions) {
         const codeRel = `${base}.${ext}`;
         const codeUri = vscode.Uri.joinPath(folder.uri, ...codeRel.split('/'));
         try {
@@ -288,7 +303,6 @@ export function activate(context: vscode.ExtensionContext) {
       return;
     }
 
-    const config = vscode.workspace.getConfiguration('docHelper');
     const docsDirectory = config.get<string>('saveDirectory') || 'docs/';
 
     const uri = editor.document.uri;
@@ -299,15 +313,16 @@ export function activate(context: vscode.ExtensionContext) {
       return;
     }
     const folder = folders[0];
+    const { extensions, regex } = await getWorkspaceConfig(folder);
     const state = await loadState();
     let text: string | undefined;
     let bg: vscode.ThemeColor | undefined;
 
-    if (/\.(ts|js|tsx)$/.test(rel)) {
+    if (regex.test(rel)) {
       // code file, check doc exists?
       const docRel = rel
         .replace(/^src[\/\\]/, docsDirectory)
-        .replace(/\.(ts|js|tsx)$/, '.md');
+        .replace(regex, '.md');
       const docUri = vscode.Uri.joinPath(folder.uri, ...docRel.split(/[\\/]/));
       let docExists = false;
       let docMtime = 0; // modification time
@@ -349,9 +364,9 @@ export function activate(context: vscode.ExtensionContext) {
         .replace(new RegExp('^' + docsDirectory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), 'src/')
         .replace(/\.md$/, '');
 
-      const exts = ['ts', 'js', 'tsx'];
+      
       let foundExt: string|undefined;
-      for (const ext of exts) {
+      for (const ext of extensions) {
         const candidate = `${base}.${ext}`;
         try {
           await vscode.workspace.fs.stat(

@@ -48,7 +48,7 @@ export class AIService {
 
                   Format the response in Markdown. Be concise but thorough so developers can easily understand and use the source code.`
             ),
-            vscode.LanguageModelChatMessage.User(`Code to document:
+            vscode.LanguageModelChatMessage.User(`.${language} code to document:
                   \`\`\`${language}
                   ${code}
                   \`\`\`
@@ -144,7 +144,7 @@ export class AIService {
                If the documentation meets the basic standards above, respond with "No significant issues found."
                Otherwise, list only the major problems that need attention.`
             ),
-            vscode.LanguageModelChatMessage.User(`Code (${language}):
+            vscode.LanguageModelChatMessage.User(`Code's language format (${language}):
                     \`\`\`${language}
                     ${code}
                     \`\`\`
@@ -213,7 +213,7 @@ export class AIService {
                 suggest what the user might want to write next. Give a short, focused completion (1-3 sentences max).
                 Only provide the text to be inserted, no explanations or formatting.`
             ),
-            vscode.LanguageModelChatMessage.User(`Source code (${language}):
+            vscode.LanguageModelChatMessage.User(`Source code's language format (${language}):
             \`\`\`${language}
             ${sourceCode}
             \`\`\`

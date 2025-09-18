@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { getWorkspaceConfig } from '../utils/doch';
 import { AIService } from '../ai/temporaryAI';
 import { DocumentationInlineSuggestionProvider } from '../providers/documentInlineSuggestionProvider';
 
@@ -20,16 +21,9 @@ export async function generateDocumentation(sourceUri: vscode.Uri) {
       const code = Buffer.from(sourceContent).toString('utf8');
       
       // Determine language from file extension
-      // Now for the demo, we use ts, tsx and js only
-      const ext = path.extname(sourceUri.fsPath).toLowerCase();
-      const language = ext === '.ts' || ext === '.tsx' ? 'typescript' : 'javascript';
+      const language = path.extname(sourceUri.fsPath).toLowerCase();
 
       progress.report({ message: "Generating documentation with AI..." });
-
-      // Generate documentation using AI
-      const documentation = await aiService.generateDocumentation(code, language);
-
-      progress.report({ message: "Creating documentation file..." });
 
       // Determine the documentation file path
       const folders = vscode.workspace.workspaceFolders;
@@ -37,12 +31,28 @@ export async function generateDocumentation(sourceUri: vscode.Uri) {
         throw new Error('No workspace folder found');
       }
 
+      const folder = folders[0];
+      const { extensions, regex } = await getWorkspaceConfig(folder);
+
+      // If extension found is not same as file extension, warn user
+      if (!extensions.includes("."+language)) {
+        vscode.window.showWarningMessage(`File extension '.${language}' is not in the allowed list: ${extensions.join(', ')}`);
+        // stop here
+        throw new Error('File extension not allowed. Try configure inside config.yml.');
+      }
+
+      // Generate documentation using AI
+      const documentation = await aiService.generateDocumentation(code, language);
+
+      progress.report({ message: "Creating documentation file..." });
+
       const config = vscode.workspace.getConfiguration('docHelper');
       const docsDirectory = config.get<string>('saveDirectory') || 'docs/';
+
       const rel = vscode.workspace.asRelativePath(sourceUri, false);
       const docRel = rel
         .replace(/^src[\/\\]/, docsDirectory)
-        .replace(/\.(ts|js|tsx|jsx)$/, '.md');
+        .replace(regex, '.md');
       
       const docUri = vscode.Uri.joinPath(folders[0].uri, ...docRel.split(/[\\/]/));
       
@@ -127,6 +137,9 @@ export async function checkDocumentation(docUri: vscode.Uri) {
         throw new Error('No workspace folder found');
       }
 
+      const folder = folders[0];
+      const { extensions, regex } = await getWorkspaceConfig(folder);
+
       const config = vscode.workspace.getConfiguration('docHelper');
       const docsDirectory = config.get<string>('saveDirectory') || 'docs/';
       const docRel = vscode.workspace.asRelativePath(docUri, false);
@@ -135,12 +148,10 @@ export async function checkDocumentation(docUri: vscode.Uri) {
         .replace(new RegExp('^' + docsDirectory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), 'src/')
         .replace(/\.md$/, '');
 
-      // Try to find the corresponding source file
-      const exts = ['ts', 'tsx', 'js', 'jsx'];
       let sourceUri: vscode.Uri | undefined;
       let foundExt: string | undefined;
-      
-      for (const ext of exts) {
+
+      for (const ext of extensions) {
         const candidate = `${base}.${ext}`;
         const candidateUri = vscode.Uri.joinPath(folders[0].uri, ...candidate.split(/[\\/]/));
         try {
@@ -162,14 +173,11 @@ export async function checkDocumentation(docUri: vscode.Uri) {
       // Read the source file content
       const sourceContent = await vscode.workspace.fs.readFile(sourceUri);
       const code = Buffer.from(sourceContent).toString('utf8');
-      
-      // Determine language
-      const language = foundExt === 'ts' || foundExt === 'tsx' ? 'typescript' : 'javascript';
 
       progress.report({ message: "Analyzing documentation issues with AI..." });
 
       // Detect issues using AI
-      const rawIssues = await aiService.detectDocumentationIssues(code, documentation, language);
+      const rawIssues = await aiService.detectDocumentationIssues(code, documentation, foundExt);
 
       progress.report({ message: "Generating issues report..." });
 

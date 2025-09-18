@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { getWorkspaceConfig } from '../utils/doch';
 
 let globalContext: vscode.ExtensionContext;
 
@@ -38,16 +39,15 @@ async function findCorrespondingSourceFile(docUri: vscode.Uri): Promise<vscode.U
   const config = vscode.workspace.getConfiguration('docHelper');
   const docsDirectory = config.get<string>('saveDirectory') || 'docs/';
   const docRel = vscode.workspace.asRelativePath(docUri, false);
+
+  const { extensions } = await getWorkspaceConfig(folder);
   
   // Convert docs path back to source path
   const base = docRel
     .replace(new RegExp('^' + docsDirectory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), 'src/')
     .replace(/\.md$/, '');
   
-  // Try to find the corresponding source file
-  const exts = ['ts', 'tsx', 'js', 'jsx'];
-  
-  for (const ext of exts) {
+  for (const ext of extensions) {
     const candidate = `${base}.${ext}`;
     const candidateUri = vscode.Uri.joinPath(folder.uri, ...candidate.split(/[\\/]/));
     try {

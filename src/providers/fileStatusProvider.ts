@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import ignore from 'ignore';
+import { getWorkspaceConfig } from '../utils/doch';
 
 export type FileStatus = 'Undocumented' | 'Undocumented-md' | 'Out-of-Date' | 'Out-of-Date-md' | 'Documented' | 'Documented-md' | 'No Source' | 'Independent';
 
@@ -56,6 +57,10 @@ export class FileStatusProvider implements vscode.TreeDataProvider<FileStatusIte
     const folders = vscode.workspace.workspaceFolders;
     if (!folders) {return [];}
     const root = folders[0].uri;
+    const workspaceFolder = folders[0];
+
+    // Get dynamic config
+    const { extensions, regex } = await getWorkspaceConfig(workspaceFolder);
     
     // Load .doch metadata state - same as extension.ts loadState()
     async function loadState(): Promise<Record<string, { documented: boolean; timestamp: string }>> {
@@ -89,7 +94,8 @@ export class FileStatusProvider implements vscode.TreeDataProvider<FileStatusIte
     }
 
     // Get all relevant files
-    const pattern = new vscode.RelativePattern(root, '**/*.{ts,tsx,js,jsx,md}');
+    const extPattern = extensions.length > 1 ? extensions.join(',') : extensions[0] || 'ts';
+    const pattern = new vscode.RelativePattern(root, `**/*.{${extPattern},md}`);
     let uris = await vscode.workspace.findFiles(pattern);
 
     // Filter out ignored files
@@ -111,11 +117,11 @@ export class FileStatusProvider implements vscode.TreeDataProvider<FileStatusIte
       const rel = vscode.workspace.asRelativePath(uri, false);
       let status: FileStatus = 'Undocumented';
 
-      if (/\.(ts|js|tsx)$/.test(rel)) {
+      if (regex.test(rel)) {
         // Source file logic - matches extension.ts updateStatus exactly
         const docRel = rel
           .replace(/^src[\/\\]/, docsDirectory)
-          .replace(/\.(ts|js|tsx)$/, '.md');
+          .replace(regex, '.md');
         const docUri = vscode.Uri.joinPath(root, ...docRel.split(/[\\/]/));
         
         let docExists = false;
@@ -153,9 +159,9 @@ export class FileStatusProvider implements vscode.TreeDataProvider<FileStatusIte
           .replace(new RegExp('^' + docsDirectory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), 'src/')
           .replace(/\.md$/, '');
 
-        const exts = ['ts', 'js', 'tsx'];
+
         let foundExt: string|undefined;
-        for (const ext of exts) {
+        for (const ext of extensions) {
           const candidate = `${base}.${ext}`;
           try {
             await vscode.workspace.fs.stat(

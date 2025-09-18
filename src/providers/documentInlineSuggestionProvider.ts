@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { AIService } from '../ai/temporaryAI';
+import { getWorkspaceConfig } from '../utils/doch';
 
 const aiService = new AIService();
 
@@ -22,9 +23,9 @@ async function findCorrespondingSourceFile(docUri: vscode.Uri): Promise<vscode.U
     .replace(/\.md$/, '');
   
   // Try to find the corresponding source file
-  const exts = ['ts', 'tsx', 'js', 'jsx'];
+  const { extensions } = await getWorkspaceConfig(folder);
   
-  for (const ext of exts) {
+  for (const ext of extensions) {
     const candidate = `${base}.${ext}`;
     const candidateUri = vscode.Uri.joinPath(folder.uri, ...candidate.split(/[\\/]/));
     try {
@@ -66,8 +67,7 @@ export class DocumentationInlineSuggestionProvider implements vscode.InlineCompl
       const sourceCode = Buffer.from(sourceContent).toString('utf8');
       
       // Determine language
-      const ext = path.extname(sourceUri.fsPath).toLowerCase();
-      const language = ext === '.ts' || ext === '.tsx' ? 'typescript' : 'javascript';
+      const language = path.extname(sourceUri.fsPath).toLowerCase();
       
       // Get the current document content
       const docContent = document.getText();

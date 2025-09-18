@@ -1,5 +1,6 @@
 import { on } from 'events';
 import * as vscode from 'vscode';
+import { getWorkspaceConfig } from '../utils/doch';
 
 export function registerFileLinkingProviders(context: vscode.ExtensionContext) {
     // Decoration type to remove underlines from all links
@@ -59,7 +60,7 @@ export function registerFileLinkingProviders(context: vscode.ExtensionContext) {
         .replace(/\.md$/, '');
 
       // Try to find the corresponding source file
-      const sourceExts = ['ts', 'tsx', 'js', 'jsx'];
+      const { extensions: sourceExts } = await getWorkspaceConfig(workspaceFolder);
       let sourceUri: vscode.Uri | undefined;
       
       for (const ext of sourceExts) {
