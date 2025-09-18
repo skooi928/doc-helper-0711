@@ -119,14 +119,18 @@ export class FileStatusProvider implements vscode.TreeDataProvider<FileStatusIte
 
       if (regex.test(rel)) {
         // Source file logic - matches extension.ts updateStatus exactly
-        let docRel = '';
+        let docRel: string | undefined;
         for (const dir of sourceDirectories) {
           const regexDir = new RegExp('^' + dir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '/');
           if (regexDir.test(rel)) {
             docRel = rel
               .replace(regexDir, docsDirectory)
               .replace(regex, '.md');
+            break;
           }
+        }
+        if (!docRel) {
+          continue; // could not determine doc path
         }
         const docUri = vscode.Uri.joinPath(root, ...docRel.split(/[\\/]/));
         

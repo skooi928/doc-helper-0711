@@ -183,14 +183,19 @@ export function activate(context: vscode.ExtensionContext) {
 
     // code → docs
     if (regex.test(relPath)) {
-      let docRel = '';
+      let docRel: string | undefined;
       for (const dir of sourceDirectories) {
         const regexDir = new RegExp('^' + dir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '/');
         if (regexDir.test(relPath)) {
           docRel = relPath
             .replace(regexDir, docsDirectory)
             .replace(regex, '.md');
+          break;
         }
+      }
+      if (!docRel) {
+        vscode.window.showWarningMessage('Could not determine documentation path from the current file.');
+        return;
       }
       const docUri = vscode.Uri.joinPath(folder.uri, ...docRel.split('/'));
       try {
@@ -333,14 +338,19 @@ export function activate(context: vscode.ExtensionContext) {
 
     if (regex.test(rel)) {
       // code file, check doc exists?
-      let docRel = '';
+      let docRel: string | undefined;
       for (const dir of sourceDirectories) {
         const regexDir = new RegExp('^' + dir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '/');
         if (regexDir.test(rel)) {
           docRel = rel
             .replace(regexDir, docsDirectory)
             .replace(regex, '.md');
+            break;
         }
+      }
+      if (!docRel) {
+        statusBarItem.hide();
+        return;
       }
       const docUri = vscode.Uri.joinPath(folder.uri, ...docRel.split(/[\\/]/));
       let docExists = false;

@@ -50,14 +50,19 @@ export async function generateDocumentation(sourceUri: vscode.Uri) {
       const docsDirectory = config.get<string>('saveDirectory') || 'docs/';
 
       const rel = vscode.workspace.asRelativePath(sourceUri, false);
-      let docRel = '';
+      let docRel: string | undefined;
       for (const dir of sourceDirectories) {
         const regexDir = new RegExp('^' + dir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '/');
         if (regexDir.test(rel)) {
           docRel = rel
             .replace(regexDir, docsDirectory)
             .replace(regex, '.md');
+          break;
         }
+      }
+
+      if (!docRel) {
+        throw new Error('Could not determine documentation file path. Check your source directories configuration.');
       }
       
       const docUri = vscode.Uri.joinPath(folders[0].uri, ...docRel.split(/[\\/]/));

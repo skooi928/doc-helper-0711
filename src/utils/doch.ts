@@ -133,6 +133,10 @@ export async function initDochRepo(folder: vscode.WorkspaceFolder) {
     );
   }
 
+  const terminal = vscode.window.createTerminal('Doc Helper');
+  terminal.show(true);
+  terminal.sendText('git config core.hooksPath .doch/hooks');
+
   vscode.window.showInformationMessage(`Initialized .doch in "${folder.name}"`);
 }
 
