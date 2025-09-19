@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { askDocumentationQuestion } from '../service/apiCall';
 
 export class ChatbotViewProvider implements vscode.WebviewViewProvider {
@@ -64,6 +65,18 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
                 }
             }
         });
+
+        // Send the active editor file to the webview
+        const sendActiveEditorFile = () => {
+            const activeEditor = vscode.window.activeTextEditor;
+            if (activeEditor) {
+                const fileName = path.basename(activeEditor.document.fileName);
+                const fileContent = activeEditor.document.getText();
+                webviewView.webview.postMessage({ type: 'activeEditor', file: { name: fileName, content: fileContent } });
+            }
+        };
+        sendActiveEditorFile();
+        vscode.window.onDidChangeActiveTextEditor(sendActiveEditorFile);
     }
 
     private _getHtmlForWebview(webview: vscode.Webview) {

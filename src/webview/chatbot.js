@@ -108,10 +108,18 @@
         if (question) {
             // read each File as UTF-8 text before posting
             const filesPayload = await Promise.all(
-                uploadedFiles.map(async file => ({
-                name: file.name,
-                content: await file.text() // wait for file content
-                }))
+                uploadedFiles.map(async file => {
+                    if (file.content !== undefined) {
+                        return ({
+                            name: file.name,
+                            content: file.content
+                        });
+                    }
+                    return ({
+                        name: file.name,
+                        content: await file.text() // wait for file content
+                    });
+                })
             );
 
             vscode.postMessage({
@@ -128,7 +136,7 @@
             
             // Clear the input field and uploaded files
             chatInput.value = '';
-            uploadedFiles = [];
+            uploadedFiles = uploadedFiles[0] ? [uploadedFiles[0]] : []; // retain the first file (active editor)
             updateUploadedFilesDisplay();
             adjustTextareaHeight();
             updateSendButton();
@@ -162,6 +170,12 @@
     window.addEventListener('message', event => {
         const message = event.data;
         switch (message.type) {
+            case 'activeEditor':
+                const file = message.file;
+                uploadedFiles.splice(0,1,file);
+                chatState.files.splice(0,1,file);
+                updateUploadedFilesDisplay();
+                break;
             case 'addAIAnswer':
                 // Remove typing indicator
                 if (typingMessage) {
