@@ -2,6 +2,7 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import * as yaml from 'js-yaml';
+import { minimatch } from 'minimatch';
 
 export interface DocState {
   [sourceRel: string]: {
@@ -51,6 +52,20 @@ async function ensureMetaDir(root: string) {
   const metaDir = path.join(root, '.doch', 'metadata');
   await fs.mkdir(metaDir, { recursive: true });
   return path.join(metaDir, 'doc-state.json');
+}
+
+// Read .dochignore and return non-comment, non-blank lines
+async function loadIgnorePatterns(root: string): Promise<string[]> {
+  const ignorePath = path.join(root, '.dochignore');
+  try {
+    const raw = await fs.readFile(ignorePath, 'utf8');
+    return raw
+      .split(/\r?\n/)
+      .map(l => l.trim())
+      .filter(l => l && !l.startsWith('#'));
+  } catch {
+    return [];
+  }
 }
 
 async function loadDocState(root: string): Promise<DocState> {
@@ -155,11 +170,17 @@ async function getWorkspaceConfig(root: string): Promise<{ extensions: string[],
 
 export async function driftNode(files: string[], root: string) {
   await validateDochRepo(root);
+  const ignorePatterns = await loadIgnorePatterns(root);
   const state = await loadDocState(root);
   const docsDirectory = await getDocsDirectoryFromVSCode(root);
   const { extensions, regex, sourceDirectories } = await getWorkspaceConfig(root);
 
   for (const rel of files) {
+    // Check ignore patterns
+    if (ignorePatterns.some(pattern => minimatch(rel, pattern))) {
+      continue;
+    }
+
     const isInSourceDir = sourceDirectories.some(dir => rel.startsWith(`${dir}/`));
     if (!isInSourceDir || !regex.test(rel)) {
       console.log(`Skipping ${rel}: not in configured source directories or invalid extension`);
@@ -196,6 +217,7 @@ export async function driftNode(files: string[], root: string) {
 
 export async function checkNode(files: string[], root: string) {
   await validateDochRepo(root);
+  const ignorePatterns = await loadIgnorePatterns(root);
   const state = await loadDocState(root);
   const docsDirectory = await getDocsDirectoryFromVSCode(root);
   const { extensions, regex, sourceDirectories } = await getWorkspaceConfig(root);
@@ -234,6 +256,10 @@ export async function checkNode(files: string[], root: string) {
 
     if (!foundSourceRel) {
       console.log(`No corresponding source file found for ${docRel}`);
+      continue;
+    }
+
+    if (ignorePatterns.some(pat => minimatch(foundSourceRel!, pat))) {
       continue;
     }
 

@@ -34,13 +34,29 @@ dist/**
 const HOOK_POST_COMMIT = `#!/usr/bin/env sh
 echo "DocHelper: Updating doc status…"
 
+# Read file extensions from config.yml
+CONFIG_FILE=".doch/config.yml"
+if [ -f "$CONFIG_FILE" ]; then
+  # Extract fileExtensions from YAML and build regex pattern
+  EXTENSIONS=$(grep -A 10 "fileExtensions:" "$CONFIG_FILE" | grep "^  - " | sed 's/^  - "//g' | sed 's/"$//g' | tr '\n' '|' | sed 's/|$//')
+  if [ -n "$EXTENSIONS" ]; then
+    PATTERN="\\\\.(\${EXTENSIONS})$"
+  else
+    # Fallback to defaults if no extensions found
+    PATTERN="\\\\.(ts|js|tsx)$"
+  fi
+else
+  # Fallback to defaults if no config file
+  PATTERN="\\\\.(ts|js|tsx)$"
+fi
+
 # Check if this is the first commit (no parent)
 if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
   # Not the first commit - compare with previous commit
-  CHANGED_SRC=$(git diff-tree --no-commit-id --name-only -r HEAD | grep -E '\\.(ts|js|tsx)$')
+  CHANGED_SRC=$(git diff-tree --no-commit-id --name-only -r HEAD | grep -E "\${PATTERN}")
 else
   # First commit - get all files in this commit
-  CHANGED_SRC=$(git diff-tree --no-commit-id --name-only -r --root HEAD | grep -E '\\.(ts|js|tsx)$')
+  CHANGED_SRC=$(git diff-tree --no-commit-id --name-only -r --root HEAD | grep -E "\${PATTERN}")
 fi
 
 if [ -n "$CHANGED_SRC" ]; then
