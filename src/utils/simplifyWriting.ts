@@ -33,11 +33,11 @@ export async function generateDocumentation(sourceUri: vscode.Uri) {
       }
 
       const folder = folders[0];
-      const { extensions, regex } = await getWorkspaceConfig(folder);
+      const { extensions, regex, sourceDirectories } = await getWorkspaceConfig(folder);
 
       // If extension found is not same as file extension, warn user
-      if (!extensions.includes(extensionWithoutDot)) {
-        vscode.window.showWarningMessage(`File extension '${language}' is not in the allowed list: ${extensions.join(', ')}`);
+      if (!extensions.includes(language.replace(/^\./, ''))) {
+        vscode.window.showWarningMessage(`File extension '.${language}' is not in the allowed list: ${extensions.join(', ')}`);
         // stop here
         throw new Error('File extension not allowed. Try configure inside config.yml.');
       }
@@ -51,9 +51,20 @@ export async function generateDocumentation(sourceUri: vscode.Uri) {
       const docsDirectory = config.get<string>('saveDirectory') || 'docs/';
 
       const rel = vscode.workspace.asRelativePath(sourceUri, false);
-      const docRel = rel
-        .replace(/^src[\/\\]/, docsDirectory)
-        .replace(regex, '.md');
+      let docRel: string | undefined;
+      for (const dir of sourceDirectories) {
+        const regexDir = new RegExp('^' + dir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '/');
+        if (regexDir.test(rel)) {
+          docRel = rel
+            .replace(regexDir, docsDirectory)
+            .replace(regex, '.md');
+          break;
+        }
+      }
+
+      if (!docRel) {
+        throw new Error('Could not determine documentation file path. Check your source directories configuration.');
+      }
       
       const docUri = vscode.Uri.joinPath(folders[0].uri, ...docRel.split(/[\\/]/));
       
@@ -139,30 +150,36 @@ export async function checkDocumentation(docUri: vscode.Uri) {
       }
 
       const folder = folders[0];
-      const { extensions, regex } = await getWorkspaceConfig(folder);
+      const { extensions, sourceDirectories } = await getWorkspaceConfig(folder);
 
       const config = vscode.workspace.getConfiguration('docHelper');
       const docsDirectory = config.get<string>('saveDirectory') || 'docs/';
       const docRel = vscode.workspace.asRelativePath(docUri, false);
-      // Convert docs path back to source path
-      const base = docRel
-        .replace(new RegExp('^' + docsDirectory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), 'src/')
-        .replace(/\.md$/, '');
 
       let sourceUri: vscode.Uri | undefined;
       let foundExt: string | undefined;
 
-      for (const ext of extensions) {
-        const candidate = `${base}.${ext}`;
-        const candidateUri = vscode.Uri.joinPath(folders[0].uri, ...candidate.split(/[\\/]/));
-        try {
-          await vscode.workspace.fs.stat(candidateUri);
-          sourceUri = candidateUri;
-          foundExt = ext;
-          break;
-        } catch {
-          // not found, keep looking
+      for (const dir of sourceDirectories) {
+        // Convert docs path back to source path
+        const base = docRel
+          .replace(new RegExp('^' + docsDirectory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${dir}/`)
+          .replace(/\.md$/, '');
+
+        for (const ext of extensions) {
+          const candidate = `${base}.${ext}`;
+          const candidateUri = vscode.Uri.joinPath(folders[0].uri, ...candidate.split(/[\\/]/));
+          try {
+            await vscode.workspace.fs.stat(candidateUri);
+            sourceUri = candidateUri;
+            foundExt = ext;
+            break;
+          } catch {
+            // not found, keep looking
+          }
         }
+        if (sourceUri && foundExt) {
+          break;
+        } // else continue with another source directory
       }
 
       if (!sourceUri || !foundExt) {

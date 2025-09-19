@@ -16,23 +16,25 @@ async function findCorrespondingSourceFile(docUri: vscode.Uri): Promise<vscode.U
   const config = vscode.workspace.getConfiguration('docHelper');
   const docsDirectory = config.get<string>('saveDirectory') || 'docs/';
   const docRel = vscode.workspace.asRelativePath(docUri, false);
-  
-  // Convert docs path back to source path
-  const base = docRel
-    .replace(new RegExp('^' + docsDirectory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), 'src/')
-    .replace(/\.md$/, '');
-  
+
   // Try to find the corresponding source file
-  const { extensions } = await getWorkspaceConfig(folder);
+  const { extensions, sourceDirectories } = await getWorkspaceConfig(folder);
   
-  for (const ext of extensions) {
-    const candidate = `${base}.${ext}`;
-    const candidateUri = vscode.Uri.joinPath(folder.uri, ...candidate.split(/[\\/]/));
-    try {
-      await vscode.workspace.fs.stat(candidateUri);
-      return candidateUri;
-    } catch {
-      // not found, keep looking
+  for (const srcDir of sourceDirectories) {
+    // Convert docs path back to source path
+    const base = docRel
+      .replace(new RegExp('^' + docsDirectory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${srcDir}/`)
+      .replace(/\.md$/, '');
+    
+    for (const ext of extensions) {
+      const candidate = `${base}.${ext}`;
+      const candidateUri = vscode.Uri.joinPath(folder.uri, ...candidate.split(/[\\/]/));
+      try {
+        await vscode.workspace.fs.stat(candidateUri);
+        return candidateUri;
+      } catch {
+        // not found, keep looking
+      }
     }
   }
   

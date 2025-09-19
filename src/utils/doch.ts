@@ -9,11 +9,17 @@ The hooks provide the integration points with git workflow. */
 
 const TEMPLATE_CONFIG = `\
 # .doch/config.yml
-# Source code file to monitor
-codeGlobs:
-  - "src/**/*.ts"
-  - "src/**/*.js"
-  - "src/**/*.tsx"
+# Source directories to monitor
+sourceDirectories:
+  - "src/"
+  - "lib/"
+  - "app/"
+
+# File extensions to monitor (without the dot)
+fileExtensions:
+  - "ts"
+  - "js"
+  - "tsx"
 `;
 
 // Files and directories to ignore
@@ -28,13 +34,29 @@ dist/**
 const HOOK_POST_COMMIT = `#!/usr/bin/env sh
 echo "DocHelper: Updating doc status…"
 
+# Read file extensions from config.yml
+CONFIG_FILE=".doch/config.yml"
+if [ -f "$CONFIG_FILE" ]; then
+  # Extract fileExtensions from YAML and build regex pattern
+  EXTENSIONS=$(grep -A 10 "fileExtensions:" "$CONFIG_FILE" | grep "^  - " | sed 's/^  - "//g' | sed 's/"$//g' | tr '\n' '|' | sed 's/|$//')
+  if [ -n "$EXTENSIONS" ]; then
+    PATTERN="\\\\.(\${EXTENSIONS})$"
+  else
+    # Fallback to defaults if no extensions found
+    PATTERN="\\\\.(ts|js|tsx)$"
+  fi
+else
+  # Fallback to defaults if no config file
+  PATTERN="\\\\.(ts|js|tsx)$"
+fi
+
 # Check if this is the first commit (no parent)
 if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
   # Not the first commit - compare with previous commit
-  CHANGED_SRC=$(git diff-tree --no-commit-id --name-only -r HEAD | grep -E '\\.(ts|js|tsx)$')
+  CHANGED_SRC=$(git diff-tree --no-commit-id --name-only -r HEAD | grep -E "\${PATTERN}")
 else
   # First commit - get all files in this commit
-  CHANGED_SRC=$(git diff-tree --no-commit-id --name-only -r --root HEAD | grep -E '\\.(ts|js|tsx)$')
+  CHANGED_SRC=$(git diff-tree --no-commit-id --name-only -r --root HEAD | grep -E "\${PATTERN}")
 fi
 
 if [ -n "$CHANGED_SRC" ]; then
@@ -127,6 +149,10 @@ export async function initDochRepo(folder: vscode.WorkspaceFolder) {
     );
   }
 
+  const terminal = vscode.window.createTerminal('Doc Helper');
+  terminal.show(true);
+  terminal.sendText('git config core.hooksPath .doch/hooks');
+
   vscode.window.showInformationMessage(`Initialized .doch in "${folder.name}"`);
 }
 
@@ -160,7 +186,8 @@ export function watchDocState(onChange: () => void): vscode.Disposable {
 
 // Read doch config.yml file
 export interface DochConfig {
-  codeGlobs: string[];
+  sourceDirectories?: string[];
+  fileExtensions?: string[];
 }
 
 async function readDochConfig(workspaceFolder: vscode.WorkspaceFolder): Promise<DochConfig> {
@@ -171,34 +198,24 @@ async function readDochConfig(workspaceFolder: vscode.WorkspaceFolder): Promise<
     const configContent = Buffer.from(configBuffer).toString('utf8');
     const config = yaml.load(configContent) as DochConfig;
     
-    return config || { codeGlobs: ["src/**/*.ts", "src/**/*.js", "src/**/*.tsx"] };
+    return {
+      sourceDirectories: Array.isArray(config.sourceDirectories) ? config.sourceDirectories : ["src/", "lib/", "app/"],
+      fileExtensions: Array.isArray(config.fileExtensions) ? config.fileExtensions : ["ts", "js", "tsx"]
+    };
   } catch (error) {
     // Fallback to default config
-    return { codeGlobs: ["src/**/*.ts", "src/**/*.js", "src/**/*.tsx"] };
+    return { sourceDirectories: ["src/", "lib/", "app/"], fileExtensions: ["ts", "js", "tsx"] };
   }
 }
 
-function extractExtensionsFromGlobs(globs: string[]): string[] {
-  const extensions = new Set<string>();
-  
-  globs.forEach(glob => {
-    // Extract extensions from patterns like "src/**/*.ts", "**/*.{ts,js}", etc.
-    const matches = glob.match(/\*\.(\w+|\{[\w,]+\})/g);
-    if (matches) {
-      matches.forEach(match => {
-        const ext = match.replace('*.', '');
-        if (ext.startsWith('{') && ext.endsWith('}')) {
-          // Handle {ts,js,tsx} format
-          const exts = ext.slice(1, -1).split(',');
-          exts.forEach(e => extensions.add(e.trim()));
-        } else {
-          extensions.add(ext);
-        }
-      });
-    }
-  });
-  
-  return Array.from(extensions);
+// Normalize source directories (remove trailing slash)
+function normalizeSourceDirectories(sourceDirectories: string[]): string[] {
+  return sourceDirectories.map(dir => dir.endsWith('/') ? dir.slice(0, -1) : dir);
+}
+
+// Normalize file extensions (remove leading dot)
+function normalizeFileExtensions(fileExtensions: string[]): string[] {
+  return fileExtensions.map(ext => ext.startsWith('.') ? ext.slice(1) : ext);
 }
 
 function buildFileExtensionRegex(extensions: string[]): RegExp {
@@ -207,17 +224,18 @@ function buildFileExtensionRegex(extensions: string[]): RegExp {
 }
 
 // Cache for configs per workspace
-const configCache = new Map<string, { extensions: string[], regex: RegExp }>();
+const configCache = new Map<string, { extensions: string[], regex: RegExp, sourceDirectories: string[] }>();
 
-export async function getWorkspaceConfig(workspaceFolder: vscode.WorkspaceFolder): Promise<{ extensions: string[], regex: RegExp }> {
+export async function getWorkspaceConfig(workspaceFolder: vscode.WorkspaceFolder): Promise<{ extensions: string[], regex: RegExp, sourceDirectories: string[] }> {
   const key = workspaceFolder.uri.toString();
   
   if (!configCache.has(key)) {
     const config = await readDochConfig(workspaceFolder);
-    const extensions = extractExtensionsFromGlobs(config.codeGlobs);
+    const extensions = normalizeFileExtensions(config.fileExtensions || ["ts", "js", "tsx"]);
     const regex = buildFileExtensionRegex(extensions);
+    const sourceDirectories = normalizeSourceDirectories(config.sourceDirectories || ["src", "lib", "app"]);
     
-    configCache.set(key, { extensions, regex });
+    configCache.set(key, { extensions, regex, sourceDirectories });
   }
   
   return configCache.get(key)!;
