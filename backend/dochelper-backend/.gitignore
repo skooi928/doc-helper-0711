@@ -31,3 +31,8 @@ build/
 
 ### VS Code ###
 .vscode/
+requirements.md
+.env
+
+# A file for testing rag implementation
+README.md

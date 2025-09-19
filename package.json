@@ -10,12 +10,26 @@
     "Other"
   ],
   "activationEvents": [
-    "onView:doc-helper-init",
-    "onView:doc-helper-main",
-    "onView:doc-helper-version-control"
+    "onLanguage:typescript",
+    "onLanguage:typescriptreact",
+    "onLanguage:javascript",
+    "onLanguage:javascriptreact",
+    "onLanguage:markdown"
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "keybindings": [
+      {
+        "key": "ctrl+alt+l",
+        "command": "doc-helper-0711.toggleLink",
+        "when": "editorTextFocus && editorLangId == markdown"
+      },
+      {
+        "key": "ctrl+alt+g",
+        "command": "doc-helper-0711.toggleGhostSuggestion",
+        "when": "editorTextFocus && editorLangId == markdown"
+      }
+    ],
     "viewsContainers": {
       "activitybar": [
         {
@@ -34,23 +48,17 @@
           "when": "!docHelper:dochInitialized"
         },
         {
-          "id": "doc-helper-generate-docs",
-          "name": "Generate Docs",
-          "type": "webview",
-          "icon": "resources/icon.svg",
-          "when": "docHelper:dochInitialized"
-        },
-        {
           "id": "doc-helper-chatbot",
           "name": "AI Chatbot",
           "type": "webview",
           "icon": "resources/icon.svg",
           "when": "docHelper:dochInitialized"
-        },
+        }
+      ],
+      "explorer": [
         {
-          "id": "doc-helper-version-control",
-          "name": "Version Control",
-          "type": "webview",
+          "id": "doc-helper-stats",
+          "name": "Doc Helper: Stats",
           "icon": "resources/icon.svg",
           "when": "docHelper:dochInitialized"
         }
@@ -65,18 +73,177 @@
       {
         "view": "doc-helper-init",
         "contents": "This current folder has no .doch repository. To create a documentation tracking, click on the button below.\n[Init .doch Repository](command:doc-helper-0711.initDochRepo)",
-        "when": "workspaceFolderCount != 0 && !docHelper:dochInitialized"
+        "when": "workspaceFolderCount != 0"
       }
     ],
     "commands": [
       {
         "command": "doc-helper-0711.initDochRepo",
-        "title": "Initialize DocHelper Repository"
+        "title": "Doc Helper: Initialize DocHelper Repository"
+      },
+      {
+        "command": "doc-helper-0711.refreshFileStatus",
+        "title": "Doc Helper: Refresh File Status"
+      },
+      {
+        "command": "doc-helper-0711.generateDoc",
+        "title": "Generate Documentation",
+        "icon": "$(request-changes)"
+      },
+      {
+        "command": "doc-helper-0711.summarizeDoc",
+        "title": "Summarize Documentation",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "doc-helper-0711.checkDocIssue",
+        "title": "Check Documentation Issues",
+        "icon": "$(alert)"
+      },
+      {
+        "command": "doc-helper-0711.searchFile",
+        "title": "Search File",
+        "icon": "$(search)"
+      },
+      {
+        "command": "doc-helper-0711.ignoreFile",
+        "title": "Ignore File",
+        "icon": "$(eye-closed)"
+      },
+      {
+        "command": "doc-helper-0711.openFile",
+        "title": "Open File"
+      },
+      {
+        "command": "doc-helper-0711.openRespectiveDocs",
+        "title": "Open Respective Code/Docs",
+        "icon": "$(book)"
+      },
+      {
+        "command": "doc-helper-0711.toggleLink",
+        "title": "Toggle Link Mode"
+      },
+      {
+        "command": "doc-helper-0711.toggleGhostSuggestion",
+        "title": "Toggle Ghost Suggestion"
+      },
+      {
+        "command": "doc-helper-0711.reportIssue",
+        "title": "Doc Helper: Report Issue"
       }
-    ]
+    ],
+    "commandPalette": [
+      {
+        "command": "doc-helper-0711.initDochRepo",
+        "when": "docHelper:dochInitialized == false",
+        "category": "Doc Helper"
+      },
+      {
+        "command": "doc-helper-0711.refreshFileStatus",
+        "when": "docHelper:dochInitialized == true",
+        "category": "Doc Helper"
+      },
+      {
+        "command": "doc-helper-0711.reportIssue",
+        "when": "docHelper:dochInitialized == true",
+        "category": "Doc Helper"
+      }
+    ],
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "doc-helper-0711.generateDoc",
+          "when": "view == doc-helper-stats && viewItem == Undocumented",
+          "group": "inline"
+        },
+        {
+          "command": "doc-helper-0711.summarizeDoc",
+          "when": "view == doc-helper-stats && viewItem == Documented-md",
+          "group": "inline"
+        },
+        {
+          "command": "doc-helper-0711.checkDocIssue",
+          "when": "view == doc-helper-stats && (viewItem == Documented-md || viewItem == Out-of-Date-md)",
+          "group": "inline"
+        },
+        {
+          "command": "doc-helper-0711.ignoreFile",
+          "when": "view == doc-helper-stats && viewItem != category",
+          "group": "inline@0"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "doc-helper-0711.searchFile",
+          "when": "view == doc-helper-stats",
+          "group": "navigation"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "doc-helper-0711.openRespectiveDocs",
+          "when": "docHelper:dochInitialized == true",
+          "group": "navigation@0"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "doc-helper-0711.toggleLink",
+          "when": "resourceLangId == markdown && docHelper:dochInitialized == true",
+          "group": "DocHelper@1"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "doc-helper-0711.toggleLink",
+          "when": "resourceLangId == markdown && docHelper:dochInitialized == true",
+          "group": "DocHelper@1"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "doc-helper-0711.toggleLink",
+          "when": "resourceLangId == markdown && docHelper:dochInitialized == true",
+          "group": "DocHelper@1"
+        },
+        {
+          "command": "doc-helper-0711.toggleGhostSuggestion",
+          "when": "docHelper:dochInitialized == true",
+          "group": "DocHelper@2"
+        }
+      ]
+    },
+    "configuration": {
+        "title": "Doc Helper",
+        "properties": {
+          "docHelper.apiEndpoint": {
+            "type": "string",
+            "default": "http://localhost:8080",
+            "description": "Endpoint URL for the Doc Helper backend server"
+          },
+          "docHelper.saveDirectory": {
+            "type": "string",
+            "default": "docs/",
+            "description": "Default folder path to save all your documentations"
+          },
+          "docHelper.hyperlinkUnderline": {
+            "type": "boolean",
+            "default": false,
+            "description": "Enable underline for hyperlinking between code and documentation files"
+          },
+          "docHelper.enableGhostSuggestion": {
+            "type": "boolean",
+            "default": true,
+            "description": "Enable ghost text suggestions for documentation writing"
+          }
+        }
+    }
+  },
+  "bin": {
+    "doch": "./dist/cli.js"
   },
   "scripts": {
-    "start-backend": "cd backend && cd dochelper-backend && ./mvnw spring-boot:run",
+    "start-backend": "cd backend && cd dochelper-backend && mvn spring-boot:run",
     "vscode:prepublish": "npm run package",
     "compile": "npm run check-types && npm run lint && node esbuild.js",
     "watch": "npm-run-all -p start-backend watch:*",
@@ -91,16 +258,19 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.103.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
+    "@types/vscode": "^1.103.0",
     "@typescript-eslint/eslint-plugin": "^8.39.0",
     "@typescript-eslint/parser": "^8.39.0",
-    "eslint": "^9.32.0",
-    "esbuild": "^0.25.8",
-    "npm-run-all": "^4.1.5",
-    "typescript": "^5.9.2",
     "@vscode/test-cli": "^0.0.11",
-    "@vscode/test-electron": "^2.5.2"
+    "@vscode/test-electron": "^2.5.2",
+    "esbuild": "^0.25.8",
+    "eslint": "^9.32.0",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "ignore": "^7.0.5"
   }
 }
