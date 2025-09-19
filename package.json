@@ -82,6 +82,11 @@
         "title": "Doc Helper: Initialize DocHelper Repository"
       },
       {
+        "command": "doc-helper-0711.UpdateDoc",
+        "title": "Review and Update Documentation",
+        "icon": "$(diff)"
+      },
+      {
         "command": "doc-helper-0711.refreshFileStatus",
         "title": "Doc Helper: Refresh File Status"
       },
@@ -106,6 +111,11 @@
         "icon": "$(search)"
       },
       {
+        "command": "doc-helper-0711.selectAndGenerateDocs",
+        "title": "Doc Helper: Select and Generate Docs",
+        "icon": "$(rocket)"
+      },
+      {
         "command": "doc-helper-0711.ignoreFile",
         "title": "Ignore File",
         "icon": "$(eye-closed)"
@@ -126,6 +136,30 @@
       {
         "command": "doc-helper-0711.toggleGhostSuggestion",
         "title": "Toggle Ghost Suggestion"
+      },
+      {
+        "command": "doc-helper-0711.insertMissingDocs",
+        "title": "Insert Current Missing Documentation Section"
+      },
+      {
+        "command": "doc-helper-0711.insertAllMissingDocs",
+        "title": "Insert All Missing Documentation Sections"
+      },
+      {
+        "command": "doc-helper-0711.ignoreMissingDocs",
+        "title": "Ignore Documentation Warnings"
+      },
+      {
+        "command": "doc-helper-0711.fixMissingNumber",
+        "title": "Fix Missing Numbering"
+      },
+      {
+        "command": "doc-helper-0711.fixDuplicateNumber",
+        "title": "Fix Duplicate Numbering"
+      },
+      {
+        "command": "doc-helper-0711.renumberAllHeadings",
+        "title": "Renumber All Headings"
       },
       {
         "command": "doc-helper-0711.reportIssue",
@@ -167,6 +201,11 @@
           "group": "inline"
         },
         {
+          "command": "doc-helper-0711.UpdateDoc",
+          "when": "view == doc-helper-stats && viewItem == Out-of-Date-md",
+          "group": "inline@2"
+        },
+        {
           "command": "doc-helper-0711.ignoreFile",
           "when": "view == doc-helper-stats && viewItem != category",
           "group": "inline@0"
@@ -177,6 +216,12 @@
           "command": "doc-helper-0711.searchFile",
           "when": "view == doc-helper-stats",
           "group": "navigation"
+        },
+
+        {
+          "command": "doc-helper-0711.selectAndGenerateDocs",
+          "when": "view == doc-helper-stats",
+          "group": "navigation@-2"
         }
       ],
       "editor/title": [
@@ -216,10 +261,10 @@
     "configuration": {
         "title": "Doc Helper",
         "properties": {
-          "docHelper.apiEndpoint": {
+          "docHelper.geminiApiKey": {
             "type": "string",
-            "default": "http://localhost:8080",
-            "description": "Endpoint URL for the Doc Helper backend server"
+            "default": "",
+            "description": "Key in your own Gemini API Key to access QnA chatbot service"
           },
           "docHelper.saveDirectory": {
             "type": "string",
