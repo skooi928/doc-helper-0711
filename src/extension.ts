@@ -6,6 +6,9 @@ import { registerFileLinkingProviders } from './providers/fileLinkingProvider';
 import { registerMissingDocCodeActions } from './providers/missingDocCodeActionProvider';
 import { registerWrongNumberingCodeActions } from './providers/wrongNumberingCodeActionProvider';
 import { generateDocumentation, summarizeDocumentation, checkDocumentation, registerInlineSuggestionProvider } from './utils/simplifyWriting';
+import { TaskTreeProvider } from './providers/taskTreeProvider';
+import { TaskManager } from './services/taskManager';
+import { registerTaskCommands } from './commands/taskCommands';
 
 export function activate(context: vscode.ExtensionContext) {
   // Update on start
@@ -129,6 +132,14 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.window.showTextDocument(uri);
     })
   );
+
+  // Register task tracker provider and commands
+  const taskManager = new TaskManager(context);
+  const taskTreeProvider = new TaskTreeProvider(taskManager);
+  context.subscriptions.push(
+    vscode.window.registerTreeDataProvider('doc-helper-tasks', taskTreeProvider)
+  );
+  registerTaskCommands(context, taskManager, taskTreeProvider);
 
   // Refresh on any source/docs change
   const codeWatcher = vscode.workspace.createFileSystemWatcher('**/*.{ts,js,tsx,jsx,md}');

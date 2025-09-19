@@ -57,6 +57,12 @@
           "type": "webview",
           "icon": "resources/icon.svg",
           "when": "docHelper:dochInitialized"
+        },
+        {
+          "id": "doc-helper-tasks",
+          "name": "Task Tracker",
+          "icon": "$(checklist)",
+          "when": "docHelper:dochInitialized"
         }
       ],
       "explorer": [
@@ -158,6 +164,60 @@
       {
         "command": "doc-helper-0711.reportIssue",
         "title": "Doc Helper: Report Issue"
+      },
+      {
+        "command": "doc-helper-0711.addTask",
+        "title": "Add New Task",
+        "icon": "$(add)"
+      },
+      {
+        "command": "doc-helper-0711.toggleTask",
+        "title": "Toggle Task Completion"
+      },
+      {
+        "command": "doc-helper-0711.editTask",
+        "title": "Edit Task",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "doc-helper-0711.deleteTask",
+        "title": "Delete Task",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "doc-helper-0711.jumpToTaskFile",
+        "title": "Jump to File",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "doc-helper-0711.sortTasksByPriority",
+        "title": "Sort Tasks by Priority",
+        "icon": "$(list-ordered)"
+      },
+      {
+        "command": "doc-helper-0711.sortTasksByCreation",
+        "title": "Sort Tasks by Creation Order",
+        "icon": "$(calendar)"
+      },
+      {
+        "command": "doc-helper-0711.sortTasksAlphabetically",
+        "title": "Sort Tasks Alphabetically",
+        "icon": "$(symbol-text)"
+      },
+      {
+        "command": "doc-helper-0711.sortTasksByStatus",
+        "title": "Sort Tasks by Status",
+        "icon": "$(check-all)"
+      },
+      {
+        "command": "doc-helper-0711.sortTasksByDeadline",
+        "title": "Sort Tasks by Deadline",
+        "icon": "$(watch)"
+      },
+      {
+        "command": "doc-helper-0711.toggleTaskSort",
+        "title": "Choose Task Sort Mode",
+        "icon": "$(list-filter)"
       }
     ],
     "commandPalette": [
@@ -198,6 +258,21 @@
           "command": "doc-helper-0711.ignoreFile",
           "when": "view == doc-helper-stats && viewItem != category",
           "group": "inline@0"
+        },
+        {
+          "command": "doc-helper-0711.editTask",
+          "when": "view == doc-helper-tasks && viewItem == pendingTask",
+          "group": "inline@1"
+        },
+        {
+          "command": "doc-helper-0711.deleteTask",
+          "when": "view == doc-helper-tasks && (viewItem == pendingTask || viewItem == completedTask)",
+          "group": "inline@2"
+        },
+        {
+          "command": "doc-helper-0711.jumpToTaskFile",
+          "when": "view == doc-helper-tasks && (viewItem == pendingTask || viewItem == completedTask)",
+          "group": "inline@3"
         }
       ],
       "view/title": [
@@ -205,6 +280,16 @@
           "command": "doc-helper-0711.searchFile",
           "when": "view == doc-helper-stats",
           "group": "navigation"
+        },
+        {
+          "command": "doc-helper-0711.addTask",
+          "when": "view == doc-helper-tasks",
+          "group": "navigation@1"
+        },
+        {
+          "command": "doc-helper-0711.toggleTaskSort",
+          "when": "view == doc-helper-tasks",
+          "group": "navigation@2"
         }
       ],
       "editor/title": [
@@ -263,6 +348,18 @@
           "type": "boolean",
           "default": true,
           "description": "Enable ghost text suggestions for documentation writing"
+        },
+        "taskTracker.sortMode": {
+          "type": "string",
+          "enum": ["creation", "priority", "alphabetical", "status"],
+          "default": "creation",
+          "description": "Default sort mode for tasks",
+          "enumDescriptions": [
+            "Sort by creation date (newest first)",
+            "Sort by priority level (high → medium → low)",
+            "Sort alphabetically by title",
+            "Sort by completion status (pending first)"
+          ]
         }
       }
     }
