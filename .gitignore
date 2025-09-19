@@ -3,5 +3,5 @@ dist
 node_modules
 .vscode-test/
 *.vsix
+requirement.md
 .env
-.requirements.txt
