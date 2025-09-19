@@ -58,6 +58,25 @@ export async function generateDocumentation(sourceUri: vscode.Uri) {
       const docContent = Buffer.from(documentation, 'utf8');
       await vscode.workspace.fs.writeFile(docUri, docContent);
 
+      // Update .doch/metadata/doc-state.json to mark as documented now
+      try {
+        const folder = folders[0];
+        const stateUri = vscode.Uri.joinPath(folder.uri, '.doch', 'metadata', 'doc-state.json');
+        let state: Record<string, { documented: boolean; timestamp: string }>; 
+        try {
+          const buf = await vscode.workspace.fs.readFile(stateUri);
+          state = JSON.parse(buf.toString());
+        } catch {
+          state = {};
+          // ensure directory exists
+          await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(folder.uri, '.doch', 'metadata'));
+        }
+        state[rel] = { documented: true, timestamp: new Date().toISOString() };
+        await vscode.workspace.fs.writeFile(stateUri, Buffer.from(JSON.stringify(state, null, 2), 'utf8'));
+      } catch (e) {
+        console.warn('Failed to update doc-state.json:', e);
+      }
+
       progress.report({ message: "Opening generated documentation..." });
 
       // Open the generated documentation in editor

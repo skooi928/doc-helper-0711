@@ -81,6 +81,10 @@
         "command": "doc-helper-0711.initDochRepo",
         "title": "Doc Helper: Initialize DocHelper Repository"
       },
+      {  
+        "command": "doc-helper-0711.statusBarMenu",
+        "title": "Doc Helper: Status Bar Menu"
+      },
       {
         "command": "doc-helper-0711.refreshFileStatus",
         "title": "Doc Helper: Refresh File Status"

@@ -262,6 +262,105 @@ export function activate(context: vscode.ExtensionContext) {
   );
   context.subscriptions.push(statusBarItem);
 
+  // Register a status bar menu command and bind it to the status bar item
+  let ghostSnoozeTimer: NodeJS.Timeout | undefined;
+  // Snooze ghost suggestions command (also used by tooltip link)
+  const snoozeCmd = vscode.commands.registerCommand('doc-helper-0711.snoozeGhost5m', async () => {
+    const cfg = vscode.workspace.getConfiguration('docHelper');
+    if (ghostSnoozeTimer) {
+      clearTimeout(ghostSnoozeTimer);
+    }
+    await cfg.update('enableGhostSuggestion', false, vscode.ConfigurationTarget.Global);
+    vscode.window.showInformationMessage('Ghost suggestions snoozed for 5 minutes.');
+    ghostSnoozeTimer = setTimeout(async () => {
+      await cfg.update('enableGhostSuggestion', true, vscode.ConfigurationTarget.Global);
+      vscode.window.showInformationMessage('Ghost suggestions re-enabled.');
+    }, 5 * 60 * 1000);
+  });
+  context.subscriptions.push(snoozeCmd);
+
+  const statusBarMenuCmd = vscode.commands.registerCommand('doc-helper-0711.statusBarMenu', async () => {
+    const cfg = vscode.workspace.getConfiguration('docHelper');
+    const isGhostEnabled = cfg.get<boolean>('enableGhostSuggestion', true);
+    const underlineLinks = cfg.get<boolean>('hyperlinkUnderline', false);
+    const apiEndpoint = cfg.get<string>('apiEndpoint') ?? 'http://localhost:8080';
+    const saveDir = cfg.get<string>('saveDirectory') ?? 'docs/';
+    const geminiApiKey = cfg.get<string>('geminiApiKey') ?? '';
+
+    const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem & { key?: string }>();
+    quickPick.canSelectMany = true;
+    quickPick.title = 'Doc Helper Settings';
+    quickPick.matchOnDetail = true;
+    quickPick.items = [
+      { label: 'Enable ghost suggestions', picked: isGhostEnabled, key: 'enableGhostSuggestion' },
+      { label: 'Underline hyperlinks', picked: underlineLinks, key: 'hyperlinkUnderline' },
+      { label: `Set API endpoint (${apiEndpoint})`, description: 'Edit URL', key: 'setApi' },
+      { label: `Set save directory (${saveDir})`, description: 'Edit path', key: 'setSaveDir' },
+      { label: `Set Gemini API Key (${geminiApiKey ? '***' + geminiApiKey.slice(-4) : 'Not set'})`, description: 'Key for QnA chatbot service', key: 'setGeminiKey' },
+    ];
+    quickPick.selectedItems = quickPick.items.filter(i => (i as any).key === 'enableGhostSuggestion' ? isGhostEnabled : (i as any).key === 'hyperlinkUnderline' ? underlineLinks : false);
+
+    const selection = await new Promise<(vscode.QuickPickItem & { key?: string })[] | undefined>(resolve => {
+      quickPick.onDidAccept(() => resolve(quickPick.selectedItems as any));
+      quickPick.onDidHide(() => resolve(undefined));
+      quickPick.show();
+    });
+    quickPick.dispose();
+    if (!selection) {
+      return;
+    }
+
+    const selectedKeys = new Set(selection.map(s => s.key).filter(Boolean) as string[]);
+
+    // Apply toggles
+    const wantGhost = selectedKeys.has('enableGhostSuggestion');
+    const wantUnderline = selectedKeys.has('hyperlinkUnderline');
+    if (wantGhost !== isGhostEnabled) {
+      await cfg.update('enableGhostSuggestion', wantGhost, vscode.ConfigurationTarget.Global);
+    }
+    if (wantUnderline !== underlineLinks) {
+      await cfg.update('hyperlinkUnderline', wantUnderline, vscode.ConfigurationTarget.Global);
+    }
+
+    // Actions
+    if (selectedKeys.has('setApi')) {
+      const newUrl = await vscode.window.showInputBox({
+        title: 'Doc Helper API Endpoint',
+        value: apiEndpoint,
+        prompt: 'Enter the backend URL, e.g., http://localhost:8080',
+        ignoreFocusOut: true
+      });
+      if (newUrl) {
+        await cfg.update('apiEndpoint', newUrl, vscode.ConfigurationTarget.Global);
+      }
+    }
+    if (selectedKeys.has('setSaveDir')) {
+      const newDir = await vscode.window.showInputBox({
+        title: 'Documentation Save Directory',
+        value: saveDir,
+        prompt: 'Enter a relative folder path, e.g., docs/',
+        ignoreFocusOut: true
+      });
+      if (newDir) {
+        await cfg.update('saveDirectory', newDir, vscode.ConfigurationTarget.Workspace);
+      }
+    }
+    if (selectedKeys.has('setGeminiKey')) {
+      const newKey = await vscode.window.showInputBox({
+        title: 'Gemini API Key',
+        value: geminiApiKey,
+        prompt: 'Enter your Gemini API Key for QnA chatbot service',
+        password: true,
+        ignoreFocusOut: true
+      });
+      if (newKey !== undefined) {
+        await cfg.update('geminiApiKey', newKey, vscode.ConfigurationTarget.Global);
+      }
+    }
+  });
+  context.subscriptions.push(statusBarMenuCmd);
+  statusBarItem.command = 'doc-helper-0711.statusBarMenu';
+
   // function to load json state from .doch/metadata/doc-state.json
   async function loadState(): Promise<Record<string, { documented: boolean; timestamp: string }>> {
     const folders = vscode.workspace.workspaceFolders;
@@ -299,6 +398,7 @@ export function activate(context: vscode.ExtensionContext) {
     const state = await loadState();
     let text: string | undefined;
     let bg: vscode.ThemeColor | undefined;
+    let currentStatusLabel: string | undefined;
 
     if (/\.(ts|js|tsx)$/.test(rel)) {
       // code file, check doc exists?
@@ -326,18 +426,22 @@ export function activate(context: vscode.ExtensionContext) {
 
       if (!docExists) {
         text = '$(alert) Undocumented';
+        currentStatusLabel = 'Undocumented';
         bg = new vscode.ThemeColor('statusBarItem.errorBackground');
       }
       else if (entry && commitTime !== undefined && ((commitTime < codeTime) || (commitTime < docTime))) {
         text = '$(alert) Stale';
+        currentStatusLabel = 'Stale';
         bg = new vscode.ThemeColor('statusBarItem.warningBackground');
       }
       else if (entry && entry.documented) {
         text = '$(check) Documented';
+        currentStatusLabel = 'Documented';
         bg = undefined;
       }
       else {
         text = '$(circle-outline) Docs Uncommitted';
+        currentStatusLabel = 'Docs Uncommitted';
         bg = new vscode.ThemeColor('statusBarItem.errorBackground');
       }
     } else if (/\.md$/.test(rel)) {
@@ -364,6 +468,7 @@ export function activate(context: vscode.ExtensionContext) {
       if (!foundExt) {
         // no matching source at all
         text = '$(alert) No Matched Source';
+        currentStatusLabel = 'No Matched Source';
         bg  = new vscode.ThemeColor('statusBarItem.warningBackground');
       } else {
         const srcRel = `${base}.${foundExt}`;
@@ -377,14 +482,17 @@ export function activate(context: vscode.ExtensionContext) {
 
         if (entry && commitTime !== undefined && ((commitTime < codeTime) || (commitTime < docsTime))) {
           text = '$(alert) Stale';
+          currentStatusLabel = 'Stale';
           bg = new vscode.ThemeColor('statusBarItem.warningBackground');
         }
         else if (entry && entry.documented) {
           text = '$(check) Sync';
+          currentStatusLabel = 'Sync';
           bg = undefined;
         }
         else {
           text = '$(circle-outline) Uncommitted Docs';
+          currentStatusLabel = 'Uncommitted Docs';
           bg = new vscode.ThemeColor('statusBarItem.errorBackground');
         }
       }
@@ -392,7 +500,22 @@ export function activate(context: vscode.ExtensionContext) {
 
     if (text) {
       statusBarItem.text = text;
-      statusBarItem.tooltip = `Documentation status for ${rel}`;
+      // Build rich markdown tooltip with quick actions
+      const cfg = vscode.workspace.getConfiguration('docHelper');
+      const apiEndpoint = cfg.get<string>('apiEndpoint') ?? 'http://localhost:8080';
+      const md = new vscode.MarkdownString(
+        `**Doc Helper**  \\
+Status: ${currentStatusLabel ?? '—'}  \\
+File: \`${rel}\`  \\
+API: ${apiEndpoint}\n\n` +
+        `$(refresh) [Refresh](command:doc-helper-0711.refreshFileStatus)  |  ` +
+        `$(settings-gear) [Settings](command:workbench.action.openSettings?%5B%22docHelper%22%5D)  |  ` +
+        `$(eye) [Toggle ghost](command:doc-helper-0711.toggleGhostSuggestion)  |  ` +
+        `$(bell-slash) [Snooze 5m](command:doc-helper-0711.snoozeGhost5m)`
+      );
+      md.isTrusted = true;
+      md.supportThemeIcons = true;
+      statusBarItem.tooltip = md;
       statusBarItem.backgroundColor = bg;
       statusBarItem.show();
     } else {
