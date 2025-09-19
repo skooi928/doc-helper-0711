@@ -82,6 +82,11 @@
         "title": "Doc Helper: Initialize DocHelper Repository"
       },
       {
+        "command": "doc-helper-0711.UpdateDoc",
+        "title": "Review and Update Documentation",
+        "icon": "$(diff)"
+      },
+      {
         "command": "doc-helper-0711.refreshFileStatus",
         "title": "Doc Helper: Refresh File Status"
       },
@@ -104,6 +109,11 @@
         "command": "doc-helper-0711.searchFile",
         "title": "Search File",
         "icon": "$(search)"
+      },
+      {
+        "command": "doc-helper-0711.selectAndGenerateDocs",
+        "title": "Doc Helper: Select and Generate Docs",
+        "icon": "$(rocket)"
       },
       {
         "command": "doc-helper-0711.ignoreFile",
@@ -191,6 +201,11 @@
           "group": "inline"
         },
         {
+          "command": "doc-helper-0711.UpdateDoc",
+          "when": "view == doc-helper-stats && viewItem == Out-of-Date-md",
+          "group": "inline@2"
+        },
+        {
           "command": "doc-helper-0711.ignoreFile",
           "when": "view == doc-helper-stats && viewItem != category",
           "group": "inline@0"
@@ -201,6 +216,12 @@
           "command": "doc-helper-0711.searchFile",
           "when": "view == doc-helper-stats",
           "group": "navigation"
+        },
+
+        {
+          "command": "doc-helper-0711.selectAndGenerateDocs",
+          "when": "view == doc-helper-stats",
+          "group": "navigation@-2"
         }
       ],
       "editor/title": [

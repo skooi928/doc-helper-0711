@@ -1,0 +1,29 @@
+{
+    "doc-helper-doc-template": {
+        "prefix": "doc",
+        "scope": "markdown,plaintext",
+        "body": [
+        "# ${1:Document Title}",
+        "",
+        "## Overview",
+        "- ${2:Brief description of what this file/module/function does.}",
+        "",
+        "## Functions",
+        "### Function Name",
+        "**Description:** What the function does.",
+        "## Usage",
+        "- ${3:How to use this file or feature.}",
+        "- ${4:Example code snippet if applicable.}",
+        "",
+        "## Parameters",
+        "- ${5:List important inputs or arguments (if any).}",
+        "",
+        "## Returns / Output",
+        "- ${6:Describe what is returned or the outcome.}",
+        "",
+        "## Notes",
+        "- ${7:Special considerations, limitations, or extra context.}"
+        ],
+        "description": "Basic documentation template for a single file"
+    }
+}

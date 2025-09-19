@@ -1,4 +1,8 @@
 import * as vscode from 'vscode';
+
+const outputChannel = vscode.window.createOutputChannel('Doc Helper Logs');
+import * as path from 'path';
+import { AIService } from './ai/temporaryAI';
 import { initDochRepo, updateDochContext, watchDocState } from './utils/doch';
 import { ChatbotViewProvider } from './providers/chatbotViewProvider'; 
 import { FileStatusItem, FileStatusProvider } from './providers/fileStatusProvider';
@@ -8,6 +12,125 @@ import { registerWrongNumberingCodeActions } from './providers/wrongNumberingCod
 import { generateDocumentation, summarizeDocumentation, checkDocumentation, registerInlineSuggestionProvider } from './utils/simplifyWriting';
 
 export function activate(context: vscode.ExtensionContext) {
+  const aiService = new AIService();
+  context.subscriptions.push(
+    vscode.commands.registerCommand('doc-helper-0711.UpdateDoc', async (item: FileStatusItem) => {
+      const docUri = item?.fileUri;
+      if (!docUri || !docUri.fsPath) {
+        vscode.window.showErrorMessage('Selected documentation is not a file on disk. Please select a markdown file that exists in your workspace.');
+        return;
+      }
+      // Debug logging
+      console.log('docUri:', docUri);
+      console.log('docUri.fsPath:', docUri.fsPath);
+      try {
+        // Read original documentation
+        const originalContent = Buffer.from(await vscode.workspace.fs.readFile(docUri)).toString('utf8');
+
+        // Find corresponding source file
+        const folders = vscode.workspace.workspaceFolders;
+        if (!folders?.length) {
+          throw new Error('No workspace folder found');
+        }
+        const config = vscode.workspace.getConfiguration('docHelper');
+        const docsDirectory = config.get<string>('saveDirectory') || 'docs/';
+        const docRel = vscode.workspace.asRelativePath(docUri, false);
+        const base = docRel
+          .replace(new RegExp('^' + docsDirectory.replace(/[.*+?^${}()|[\]"]/g, '\$&')), 'src/')
+          .replace(/\.md$/, '');
+        const exts = ['ts', 'tsx', 'js', 'jsx'];
+        let sourceUri: vscode.Uri | undefined;
+        let foundExt: string | undefined;
+        for (const ext of exts) {
+          const candidate = `${base}.${ext}`;
+          const candidateUri = vscode.Uri.joinPath(folders[0].uri, ...candidate.split(/[\\/]/));
+          try {
+            await vscode.workspace.fs.stat(candidateUri);
+            sourceUri = candidateUri;
+            foundExt = ext;
+            break;
+          } catch {
+            // not found
+          }
+        }
+        if (!sourceUri || !foundExt) {
+          throw new Error('Could not find corresponding source file for this documentation');
+        }
+        // Read source code
+        const sourceContent = Buffer.from(await vscode.workspace.fs.readFile(sourceUri)).toString('utf8');
+        const ext = path.extname(sourceUri.fsPath).toLowerCase();
+        const language = ext === '.ts' || ext === '.tsx' ? 'typescript' : 'javascript';
+
+        // Generate updated documentation with AI
+        const updatedContent = await generateDocumentationForReview(sourceContent, language, originalContent);
+
+        // Create a temp file for the AI-generated documentation
+        const tempDocPath = docUri.fsPath + '.AI';
+        const tempDocUri = vscode.Uri.file(tempDocPath);
+        await vscode.workspace.fs.writeFile(tempDocUri, Buffer.from(updatedContent, 'utf8'));
+
+        // Show diff editor: left = original, right = AI-generated
+        await vscode.commands.executeCommand('vscode.diff', docUri, tempDocUri, 'Review: Original vs AI-Generated');
+
+        // Prompt to accept/reject
+        const choice = await vscode.window.showInformationMessage(
+          'Do you want to accept the AI-generated documentation?',
+          'Accept', 'Reject'
+        );
+        if (choice === 'Accept') {
+          await vscode.workspace.fs.writeFile(docUri, Buffer.from(updatedContent, 'utf8'));
+          vscode.window.showInformationMessage('Documentation updated!');
+        } else {
+          vscode.window.showInformationMessage('No changes applied.');
+          await vscode.workspace.fs.delete(tempDocUri);
+        }
+      } catch (error) {
+        vscode.window.showErrorMessage(`Failed to review/update documentation: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    })
+  );
+
+  // Helper for AI review command
+  async function generateDocumentationForReview(code: string, language: string, context: string): Promise<string> {
+    // Use the AI service to generate updated documentation, passing original as context
+    return await aiService.generateDocumentation(code, language, context);
+  }
+    vscode.commands.registerCommand('doc-helper-0711.selectAndGenerateDocs', async () => {
+      const allItems = await fileStatusProvider.getAllItems();
+      const undocumented = allItems.filter(item => item.status === 'Undocumented');
+      if (undocumented.length === 0) {
+        vscode.window.showInformationMessage('No undocumented source files found.');
+        return;
+      }
+      const picks = undocumented.map(item => ({
+        label: item.label,
+        description: vscode.workspace.asRelativePath(item.fileUri!, false),
+        picked: false,
+        item
+      }));
+      const selected = await vscode.window.showQuickPick(picks, {
+        canPickMany: true,
+        placeHolder: 'Select one or more files to generate documentation for'
+      });
+      if (!selected || selected.length === 0) {
+        vscode.window.showInformationMessage('No files selected.');
+        return;
+      }
+      vscode.window.withProgress({
+        location: vscode.ProgressLocation.Notification,
+        title: 'Generating documentation for selected files...',
+        cancellable: false
+      }, async (progress) => {
+        let completed = 0;
+        for (const pick of selected) {
+          progress.report({ message: `Processing ${pick.label} (${completed + 1}/${selected.length})` });
+          await generateDocumentation(pick.item.fileUri!);
+          completed++;
+        }
+        vscode.window.showInformationMessage(`Documentation generated for ${selected.length} files.`);
+        fileStatusProvider.refresh();
+      });
+    }),
   // Update on start
   updateDochContext();
 
@@ -64,6 +187,7 @@ export function activate(context: vscode.ExtensionContext) {
         await vscode.window.showTextDocument(selection.item.fileUri);
       }
     }),
+    
     vscode.commands.registerCommand('doc-helper-0711.ignoreFile', async (item: FileStatusItem) => {
       if (!item.fileUri) {
         return;
