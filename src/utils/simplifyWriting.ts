@@ -22,6 +22,7 @@ export async function generateDocumentation(sourceUri: vscode.Uri) {
       
       // Determine language from file extension
       const language = path.extname(sourceUri.fsPath).toLowerCase();
+      const extensionWithoutDot = language.substring(1); // Remove the leading dot
 
       progress.report({ message: "Generating documentation with AI..." });
 
@@ -35,8 +36,8 @@ export async function generateDocumentation(sourceUri: vscode.Uri) {
       const { extensions, regex } = await getWorkspaceConfig(folder);
 
       // If extension found is not same as file extension, warn user
-      if (!extensions.includes("."+language)) {
-        vscode.window.showWarningMessage(`File extension '.${language}' is not in the allowed list: ${extensions.join(', ')}`);
+      if (!extensions.includes(extensionWithoutDot)) {
+        vscode.window.showWarningMessage(`File extension '${language}' is not in the allowed list: ${extensions.join(', ')}`);
         // stop here
         throw new Error('File extension not allowed. Try configure inside config.yml.');
       }

@@ -6,6 +6,13 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
+			"type": "java",
+			"name": "DochelperBackendApplication",
+			"request": "launch",
+			"mainClass": "com.nezha.docs.dochelper_backend.DochelperBackendApplication",
+			"projectName": "dochelper-backend"
+		},
+		{
 			"name": "Run Extension",
 			"type": "extensionHost",
 			"request": "launch",
