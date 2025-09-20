@@ -99,11 +99,11 @@ export class TaskManager implements TaskProvider {
     }
 
     private saveTasks(): void {
-        this.context.globalState.update(this.STORAGE_KEY, this.tasks);
+        this.context.workspaceState.update(this.STORAGE_KEY, this.tasks);
     }
 
     private loadTasks(): void {
-        const stored = this.context.globalState.get<Task[]>(this.STORAGE_KEY);
+        const stored = this.context.workspaceState.get<Task[]>(this.STORAGE_KEY);
         if (stored) {
             // Convert date strings back to Date objects
             this.tasks = stored.map(task => ({
@@ -254,13 +254,7 @@ export class TaskTreeProvider implements vscode.TreeDataProvider<TaskTreeItem> {
     
     private currentSortMode: SortMode = SortMode.CreationOrder;
 
-    constructor(private taskManager: TaskManager) {
-        // Load saved sort preference
-        const savedSort = vscode.workspace.getConfiguration('taskTracker').get<string>('sortMode');
-        if (savedSort && Object.values(SortMode).includes(savedSort as SortMode)) {
-            this.currentSortMode = savedSort as SortMode;
-        }
-    }
+    constructor(private taskManager: TaskManager) {}
 
     refresh(): void {
         this._onDidChangeTreeData.fire();
@@ -272,8 +266,6 @@ export class TaskTreeProvider implements vscode.TreeDataProvider<TaskTreeItem> {
 
     setSortMode(mode: SortMode): void {
         this.currentSortMode = mode;
-        // Save sort preference
-        vscode.workspace.getConfiguration('taskTracker').update('sortMode', mode, vscode.ConfigurationTarget.Global);
         this.refresh();
     }
 
