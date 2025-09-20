@@ -124,36 +124,48 @@ export class TaskTreeItem extends vscode.TreeItem {
         super(task.title, collapsibleState);
         
         // Build tooltip with file and deadline information
-        let tooltip = `${task.title}\n${task.description}`;
+        let tooltip = `Task name: ${task.title}`;
+        if (task.description && task.description !== '') {
+            tooltip += `\nDescription: ${task.description}`;
+        } else {
+            tooltip += `\nDescription: -`;
+        }
+        tooltip += `\nCreated: ${task.createdAt.toLocaleDateString()}`;
         if (task.deadline) {
             const deadlineText = this.getDeadlineText(task.deadline);
-            tooltip += `\n⏰ Deadline: ${deadlineText}`;
+            tooltip += `\nDeadline: ${deadlineText} ⏰`;
         }
+        tooltip += `\nPriority: ${task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}`;
+        tooltip += `\nStatus: ${task.completed ? 'Completed' : 'Pending'}`;
         if (task.fileUri) {
             const fileName = task.fileUri.split(/[\\\/]/).pop() || 'Unknown file';
-            tooltip += `\n📁 File: ${fileName}`;
+            tooltip += `\nFile: ${fileName}`;
             if (task.lineNumber) {
                 tooltip += ` (Line ${task.lineNumber})`;
             }
         }
         this.tooltip = tooltip;
         
+        let description = '';
+
         // Build description with deadline and file info
-        let description = task.description.length > 50 
-            ? task.description.substring(0, 47) + '...' 
-            : task.description;
+        if (task.description && task.description !== '') {
+            description = task.description.length > 50 
+                ? task.description.substring(0, 47) + '...' 
+                : task.description;
+        }
         
         // Add deadline info
         if (task.deadline) {
             const deadlineInfo = this.getShortDeadlineText(task.deadline);
-            description = description ? `${description} ${deadlineInfo}` : deadlineInfo;
+            description = description ? `${description} | ${deadlineInfo}` : deadlineInfo;
         }
         
         // Add file info
         if (task.fileUri) {
             const fileName = task.fileUri.split(/[\\\/]/).pop() || 'Unknown';
-            const fileInfo = task.lineNumber ? ` 📁${fileName}:${task.lineNumber}` : ` 📁${fileName}`;
-            description = description ? `${description} ${fileInfo}` : fileInfo;
+            const fileInfo = task.lineNumber ? ` 📁 ${fileName}:${task.lineNumber}` : ` 📁${fileName}`;
+            description = description ? `${description} | ${fileInfo}` : fileInfo;
         }
         
         this.description = description;
@@ -256,7 +268,7 @@ export class TaskTreeProvider implements vscode.TreeDataProvider<TaskTreeItem> {
     private _onDidChangeTreeData: vscode.EventEmitter<TaskTreeItem | undefined | null | void> = new vscode.EventEmitter<TaskTreeItem | undefined | null | void>();
     readonly onDidChangeTreeData: vscode.Event<TaskTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
     
-    private currentSortMode: SortMode = SortMode.CreationOrder;
+    private currentSortMode: SortMode = SortMode.Deadline;
 
     constructor(private taskManager: TaskManager) {}
 

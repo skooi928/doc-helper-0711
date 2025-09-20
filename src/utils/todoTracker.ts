@@ -81,14 +81,14 @@ export async function addTask(context: vscode.ExtensionContext, taskManager: Tas
   if (selectedFile.label.startsWith('📝 Current file')) {
       fileUri = editor!.document.uri.fsPath;
       lineNumber = editor!.selection.active.line + 1;
-  } else if (selectedFile.label !== '📄 No file association') {
+  } else if (selectedFile.label !== '🚫 No file association') {
       fileUri = selectedFile.description;
   }
 
   // Deadline selection
   let deadline: Date | undefined;
   const deadlineOptions = [
-      { label: '⏰ No deadline', description: 'Task has no specific due date' },
+      { label: '🚫 No deadline', description: 'Task has no specific due date' },
       { label: '📅 Today', description: 'Due by end of today' },
       { label: '📅 Tomorrow', description: 'Due by end of tomorrow' },
       { label: '📅 This week', description: 'Due by end of this week' },
@@ -105,7 +105,7 @@ export async function addTask(context: vscode.ExtensionContext, taskManager: Tas
     return;
   } // User cancelled
 
-  if (selectedDeadline.label !== '⏰ No deadline') {
+  if (selectedDeadline.label !== '🚫 No deadline') {
       const now = new Date();
       
       switch (selectedDeadline.label) {
@@ -209,7 +209,7 @@ export async function editTask(context: vscode.ExtensionContext, taskManager: Ta
 
   // File selection
   const fileOptions: vscode.QuickPickItem[] = [
-      { label: '📄 No file association', description: 'Remove file link from this task' }
+      { label: '🚫 No file association', description: 'Remove file link from this task' }
   ];
 
   // Add workspace files
@@ -235,7 +235,7 @@ export async function editTask(context: vscode.ExtensionContext, taskManager: Ta
     return; // User cancelled
   }
 
-  const newFilePath = selectedFile.label === '📄 No file association' ? undefined : selectedFile.description;
+  const newFilePath = selectedFile.label === '🚫 No file association' ? undefined : selectedFile.description;
 
   // Deadline editing
   const currentDeadlineText = currentTask.deadline 
@@ -243,7 +243,7 @@ export async function editTask(context: vscode.ExtensionContext, taskManager: Ta
       : 'No deadline set';
   
   const deadlineOptions = [
-      { label: '⏰ No deadline', description: 'Remove any deadline from this task', picked: !currentTask.deadline },
+      { label: '🚫 No deadline', description: 'Remove any deadline from this task', picked: !currentTask.deadline },
       { label: '📅 Today', description: 'Due by end of today' },
       { label: '📅 Tomorrow', description: 'Due by end of tomorrow' },
       { label: '📅 This week', description: 'Due by end of this week' },
@@ -264,7 +264,7 @@ export async function editTask(context: vscode.ExtensionContext, taskManager: Ta
   let newDeadline: Date | undefined = currentTask.deadline;
 
   if (selectedDeadline.label !== '📅 Keep current') {
-      if (selectedDeadline.label === '⏰ No deadline') {
+      if (selectedDeadline.label === '🚫 No deadline') {
           newDeadline = undefined;
       } else {
           const now = new Date();

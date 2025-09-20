@@ -98,7 +98,7 @@
       },
       {
         "command": "doc-helper-0711.generateDocFromSelection",
-        "title": "Generate Documentation from Selection",
+        "title": "Generate Selected Documentation",
         "icon": "$(request-changes)"
       },
       {
