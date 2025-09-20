@@ -221,15 +221,19 @@ export class TaskTreeItem extends vscode.TreeItem {
             
             if (diffDays < 0) {
                 // Overdue - red warning
+                vscode.window.showWarningMessage(`Task "${task.title}" is overdue!`);
                 return new vscode.ThemeIcon('warning', new vscode.ThemeColor('errorForeground'));
             } else if (diffDays === 0) {
                 // Due today - urgent
+                vscode.window.showWarningMessage(`Task "${task.title}" is due today!`);
                 return new vscode.ThemeIcon('watch', new vscode.ThemeColor('errorForeground'));
             } else if (diffDays === 1) {
                 // Due tomorrow - warning
+                vscode.window.showWarningMessage(`Task "${task.title}" is due tomorrow!`);
                 return new vscode.ThemeIcon('watch', new vscode.ThemeColor('notificationsWarningIcon.foreground'));
             } else if (diffDays <= 3) {
                 // Due soon - caution
+                vscode.window.showWarningMessage(`Task "${task.title}" is going to due in less than 3 days!`);
                 return new vscode.ThemeIcon('watch', new vscode.ThemeColor('foreground'));
             }
         }

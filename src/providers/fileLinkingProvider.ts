@@ -1,4 +1,3 @@
-import { on } from 'events';
 import * as vscode from 'vscode';
 import { getWorkspaceConfig } from '../utils/doch';
 
@@ -95,10 +94,10 @@ export function registerFileLinkingProviders(context: vscode.ExtensionContext) {
           const result: vscode.DocumentSymbol[] = [];
           for (const sym of syms) {
             result.push(sym);
-            // if (sym.children) {
-            //   // recursively flatten children
-            //   result.push(...flattenSymbols(sym.children));
-            // }
+            if (sym.children) {
+              // recursively flatten children
+              result.push(...flattenSymbols(sym.children));
+            }
           }
           return result;
         };

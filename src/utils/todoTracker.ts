@@ -35,7 +35,7 @@ export async function addTask(context: vscode.ExtensionContext, taskManager: Tas
   let lineNumber: number | undefined;
   
   const fileOptions: vscode.QuickPickItem[] = [
-      { label: '📄 No file association', description: 'Create task without linking to a file' }
+      { label: '🚫 No file association', description: 'Create task without linking to a file' }
   ];
 
   const editor = vscode.window.activeTextEditor;
@@ -57,12 +57,12 @@ export async function addTask(context: vscode.ExtensionContext, taskManager: Tas
           // Avoid duplicating current file
           if (editor && file.fsPath !== editor.document.uri.fsPath) {
               fileOptions.push({
-                  label: `📁 ${relativePath}`,
+                  label: `📄 ${relativePath}`,
                   description: file.fsPath
               });
           } else if (!editor) {
               fileOptions.push({
-                  label: `📁 ${relativePath}`,
+                  label: `📄 ${relativePath}`,
                   description: file.fsPath
               });
           }
