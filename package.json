@@ -7,7 +7,7 @@
     "vscode": "^1.103.0"
   },
   "categories": [
-    "Other"
+    "AI", "Snippets", "Other"
   ],
   "activationEvents": [
     "onLanguage:typescript",
@@ -257,6 +257,12 @@
         }
       ]
     },
+    "snippets": [
+      {
+        "language": "markdown",
+        "path": "./snippets/snippet.json"
+      }
+    ],
     "configuration": {
       "title": "Doc Helper",
       "properties": {

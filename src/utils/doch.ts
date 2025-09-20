@@ -153,6 +153,29 @@ export async function initDochRepo(folder: vscode.WorkspaceFolder) {
   terminal.show(true);
   terminal.sendText('git config core.hooksPath .doch/hooks');
 
+  // Ensure the workspace .vscode folder and add markdown quickSuggestions
+  const vscodeConfigDir = vscode.Uri.joinPath(folder.uri, '.vscode');
+  await vscode.workspace.fs.createDirectory(vscodeConfigDir);
+  const settingsUri = vscode.Uri.joinPath(vscodeConfigDir, 'settings.json');
+
+  let settings: any = {};
+  try {
+    const settingsContent = await vscode.workspace.fs.readFile(settingsUri);
+    settings = JSON.parse(Buffer.from(settingsContent).toString('utf8'));
+  } catch {
+    // no existing settings → start fresh
+  }
+
+  settings['[markdown]'] = settings['[markdown]'] || {};
+  settings['[markdown]']['editor.snippetSuggestions'] = "top";
+  settings['[markdown]']['editor.quickSuggestions'] = true;
+  settings['[markdown]']['editor.suggest.showWords'] = false;
+
+  await vscode.workspace.fs.writeFile(
+    settingsUri,
+    Buffer.from(JSON.stringify(settings, null, 2), 'utf8')
+  );
+
   vscode.window.showInformationMessage(`Initialized .doch in "${folder.name}"`);
 }
 

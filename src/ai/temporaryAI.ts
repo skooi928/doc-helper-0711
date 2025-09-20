@@ -12,7 +12,7 @@ export class AIService {
         try {
             const models = await vscode.lm.selectChatModels({
                 vendor: 'copilot',
-                family: 'gpt-4o-mini'
+                family: 'gpt-3.5-turbo'
             });
             
             if (models.length === 0) {
@@ -134,15 +134,17 @@ export class AIService {
                - Clean markdown formatting (doesn't need to be perfect)
                - Documentation generally matches the code
 
+               Check every function and class in the code to see if they are documented.
+
                Only flag issues if:
-               - Major functions are completely undocumented
+               - Missing functions/classes
                - Documentation is severely outdated or incorrect
-               - No desciprtions at all
+               - No descriptions at all
                - No examples or usage guidance at all
                - Documentation is completely unreadable
 
                If the documentation meets the basic standards above, respond with "No significant issues found."
-               Otherwise, list only the major problems that need attention.`
+               Otherwise, list the major problems that need attention.`
             ),
             vscode.LanguageModelChatMessage.User(`Code's language format (${language}):
                     \`\`\`${language}

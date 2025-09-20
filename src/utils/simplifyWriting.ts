@@ -6,7 +6,7 @@ import { DocumentationInlineSuggestionProvider } from '../providers/documentInli
 
 const aiService = new AIService();
 
-export async function generateDocumentation(sourceUri: vscode.Uri) {
+export async function generateDocumentation(sourceUri: vscode.Uri, replace: boolean = true) {
   try {
     // Show progress notification
     await vscode.window.withProgress({
@@ -44,10 +44,7 @@ export async function generateDocumentation(sourceUri: vscode.Uri) {
       // Generate documentation using AI
       const documentation = await aiService.generateDocumentation(code, language);
 
-      progress.report({ message: "Creating documentation file..." });
-
-      const config = vscode.workspace.getConfiguration('docHelper');
-      const docsDirectory = config.get<string>('saveDirectory') || 'docs/';
+      const docsDirectory = vscode.workspace.getConfiguration('docHelper').get<string>('saveDirectory') || 'docs/';
 
       const rel = vscode.workspace.asRelativePath(sourceUri, false);
       let docRel: string | undefined;
@@ -61,29 +58,42 @@ export async function generateDocumentation(sourceUri: vscode.Uri) {
         }
       }
 
-      if (!docRel) {
-        throw new Error('Could not determine documentation file path. Check your source directories configuration.');
+      if (replace){
+        progress.report({ message: "Creating documentation file..." });
+
+        if (!docRel) {
+          throw new Error('Could not determine documentation file path. Check your source directories configuration.');
+        }
+        
+        const docUri = vscode.Uri.joinPath(folders[0].uri, ...docRel.split(/[\\/]/));
+        
+        // Ensure the docs directory exists
+        const docDir = vscode.Uri.joinPath(docUri, '..');
+        try {
+          await vscode.workspace.fs.createDirectory(docDir);
+        } catch {
+          // Directory might already exist
+        }
+
+        // Write the documentation to file
+        const docContent = Buffer.from(documentation, 'utf8');
+        await vscode.workspace.fs.writeFile(docUri, docContent);
+
+        progress.report({ message: "Opening generated documentation..." });
+
+        // Open the generated documentation in editor
+        const doc = await vscode.workspace.openTextDocument(docUri);
+        await vscode.window.showTextDocument(doc);
+      } else {
+        progress.report({ message: "Opening generated documentation with diff view..." });
+        if (!docRel) {
+          throw new Error('Could not determine documentation file path. Check your source directories configuration.');
+        }
+        const originalDocUri = vscode.Uri.joinPath(folder.uri, ...docRel.split(/[\\/]/));
+        // Open the generated documentation in a new untitled editor
+        const preview = await vscode.workspace.openTextDocument({ content: documentation, language: 'markdown' });
+        await vscode.commands.executeCommand('vscode.diff', originalDocUri, preview.uri, `Diff: ${path.basename(originalDocUri.fsPath)} Original ↔ AI Generated`);
       }
-      
-      const docUri = vscode.Uri.joinPath(folders[0].uri, ...docRel.split(/[\\/]/));
-      
-      // Ensure the docs directory exists
-      const docDir = vscode.Uri.joinPath(docUri, '..');
-      try {
-        await vscode.workspace.fs.createDirectory(docDir);
-      } catch {
-        // Directory might already exist
-      }
-
-      // Write the documentation to file
-      const docContent = Buffer.from(documentation, 'utf8');
-      await vscode.workspace.fs.writeFile(docUri, docContent);
-
-      progress.report({ message: "Opening generated documentation..." });
-
-      // Open the generated documentation in editor
-      const doc = await vscode.workspace.openTextDocument(docUri);
-      await vscode.window.showTextDocument(doc);
     });
 
     vscode.window.showInformationMessage('Documentation generated successfully!');
@@ -228,9 +238,18 @@ export async function checkDocumentation(docUri: vscode.Uri) {
         language: 'markdown'
       });
       await vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
+      vscode.window.showInformationMessage('Documentation analysis completed!');
+      if (rawIssues.trim().toLowerCase() !== 'no significant issues found.') {
+        progress.report({ message: "Waiting for user's next action..." });
+        const userNextAction = await vscode.window.showInformationMessage(
+          'Issues were found in the documentation. Would you like to regenerate the documentation using AI?',
+          'Regenerate', 'Ignore'
+        );
+        if (userNextAction === 'Regenerate' && sourceUri) {
+          await generateDocumentation(sourceUri, false);
+        } // else ignore
+      }
     });
-
-    vscode.window.showInformationMessage('Documentation analysis completed!');
   } catch (error) {
     console.error('Error checking documentation:', error);
     vscode.window.showErrorMessage(`Failed to check documentation: ${error instanceof Error ? error.message : String(error)}`);
