@@ -91,6 +91,11 @@
         "icon": "$(request-changes)"
       },
       {
+        "command": "doc-helper-0711.generateDocFromSelection",
+        "title": "Generate Documentation from Selection",
+        "icon": "$(request-changes)"
+      },
+      {
         "command": "doc-helper-0711.summarizeDoc",
         "title": "Summarize Documentation",
         "icon": "$(sparkle)"
@@ -98,6 +103,11 @@
       {
         "command": "doc-helper-0711.checkDocIssue",
         "title": "Check Documentation Issues",
+        "icon": "$(alert)"
+      },
+      {
+        "command": "doc-helper-0711.checkSelectedDocIssues",
+        "title": "Check Selected Documentation Issues",
         "icon": "$(alert)"
       },
       {
@@ -181,6 +191,11 @@
           "group": "inline"
         },
         {
+          "command": "doc-helper-0711.generateDocFromSelection",
+          "when": "view == doc-helper-stats && viewItem == category.undocumented",
+          "group": "inline"
+        },
+        {
           "command": "doc-helper-0711.summarizeDoc",
           "when": "view == doc-helper-stats && viewItem == Documented-md",
           "group": "inline"
@@ -191,8 +206,13 @@
           "group": "inline"
         },
         {
+          "command": "doc-helper-0711.checkSelectedDocIssues",
+          "when": "view == doc-helper-stats && viewItem == category.outOfDate || viewItem == category.documented",
+          "group": "inline"
+        },
+        {
           "command": "doc-helper-0711.ignoreFile",
-          "when": "view == doc-helper-stats && viewItem != category",
+          "when": "view == doc-helper-stats && viewItem != category.undocumented && viewItem != category.outOfDate && viewItem != category.documented && viewItem != category.noSource && viewItem != category.independent",
           "group": "inline@0"
         }
       ],

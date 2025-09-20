@@ -42,15 +42,16 @@ export class FileStatusProvider implements vscode.TreeDataProvider<FileStatusIte
     if (!element) {
       // top-level categories
       const categories = [
-        new FileStatusItem('Undocumented', undefined, undefined, undefined, undefined, vscode.TreeItemCollapsibleState.Collapsed),
-        new FileStatusItem('Out-of-date', undefined, undefined, undefined, undefined, vscode.TreeItemCollapsibleState.Collapsed),
-        new FileStatusItem('Documented', undefined, undefined, undefined, undefined, vscode.TreeItemCollapsibleState.Collapsed),
-        new FileStatusItem('No Source', undefined, undefined, undefined, undefined, vscode.TreeItemCollapsibleState.Collapsed),
-        new FileStatusItem('Independent Markdown', undefined, undefined, undefined, undefined, vscode.TreeItemCollapsibleState.Collapsed)
-      ];
-
-      // Set contextValue to 'category' for all parent items
-      categories.forEach(item => item.contextValue = 'category');
+        { label: 'Undocumented', ctx: 'category.undocumented' },
+        { label: 'Out-of-date', ctx: 'category.outOfDate' },
+        { label: 'Documented', ctx: 'category.documented' },
+        { label: 'No Source', ctx: 'category.noSource' },
+        { label: 'Independent Markdown', ctx: 'category.independent' }
+      ].map(cat => {
+        const item = new FileStatusItem(cat.label, undefined, undefined, undefined, undefined, vscode.TreeItemCollapsibleState.Collapsed);
+        item.contextValue = cat.ctx;
+        return item;
+      });
       return categories;
     }
 

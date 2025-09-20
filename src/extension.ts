@@ -115,6 +115,24 @@ export function activate(context: vscode.ExtensionContext) {
         await generateDocumentation(item.fileUri);
       }
     }),
+    vscode.commands.registerCommand('doc-helper-0711.generateDocFromSelection', async (item: FileStatusItem) => {
+      const categories = await fileStatusProvider.getChildren();
+      const undocumented = categories.find(cat => cat.label === 'Undocumented');
+      if (!undocumented) {
+        vscode.window.showInformationMessage('No undocumented files found.');
+        return;
+      }
+      const items = await fileStatusProvider.getChildren(undocumented);
+      const picks = await vscode.window.showQuickPick(
+        items.map(item => ({ label: item.label, item })),
+        { canPickMany: true, placeHolder: 'Select files to generate documentation for', matchOnDescription: true }
+      );
+      if (picks) {
+        for (const p of picks) {
+          await vscode.commands.executeCommand('doc-helper-0711.generateDoc', p.item);
+        }
+      }
+    }),
     vscode.commands.registerCommand('doc-helper-0711.summarizeDoc', async (item: FileStatusItem) => {
       if (item.fileUri) {
         await summarizeDocumentation(item.fileUri);
@@ -123,6 +141,29 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('doc-helper-0711.checkDocIssue', async (item: FileStatusItem) => {
       if (item.fileUri) {
         await checkDocumentation(item.fileUri);
+      }
+    }),
+    vscode.commands.registerCommand('doc-helper-0711.checkSelectedDocIssues', async (item: FileStatusItem) => {
+      const categories = await fileStatusProvider.getChildren();
+      const relevantCats = ['Out-of-date', 'Documented'];
+      const relevant = categories.filter(cat => relevantCats.includes(cat.label));
+      if (!relevant.length) {
+        vscode.window.showInformationMessage('No relevant documentation issues found.');
+        return;
+      }
+      const allRelevantItems: FileStatusItem[] = [];
+      for (const cat of relevant) {
+        const children = await fileStatusProvider.getChildren(cat);
+        allRelevantItems.push(...children);
+      }
+      const picks = await vscode.window.showQuickPick(
+        allRelevantItems.map(item => ({ label: item.label, detail: `Status: ${item.status}`, item })),
+        { canPickMany: true, placeHolder: 'Select files to check documentation issues for' }
+      );
+      if (picks) {
+        for (const p of picks) {
+          await vscode.commands.executeCommand('doc-helper-0711.checkDocIssue', p.item);
+        }
       }
     }),
     vscode.commands.registerCommand('doc-helper-0711.openFile', (uri: vscode.Uri) => {

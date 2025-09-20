@@ -23,7 +23,7 @@ export async function generateDocumentation(sourceUri: vscode.Uri) {
       // Determine language from file extension
       const language = path.extname(sourceUri.fsPath).toLowerCase();
 
-      progress.report({ message: "Generating documentation with AI..." });
+      progress.report({ message: "Generating documentation for '" + sourceUri.fsPath + "' with AI..." });
 
       // Determine the documentation file path
       const folders = vscode.workspace.workspaceFolders;
@@ -107,7 +107,7 @@ export async function summarizeDocumentation(docUri: vscode.Uri) {
       const docContent = await vscode.workspace.fs.readFile(docUri);
       const content = Buffer.from(docContent).toString('utf8');
 
-      progress.report({ message: "Generating summary with AI..." });
+      progress.report({ message: "Generating summary for '" + docUri.fsPath + "' with AI..." });
 
       // Generate summary using AI
       const summary = await aiService.summarizeDocumentation(content);
