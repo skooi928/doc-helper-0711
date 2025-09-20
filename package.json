@@ -10,15 +10,7 @@
     "Other"
   ],
   "activationEvents": [
-    "onLanguage:typescript",
-    "onLanguage:typescriptreact",
-    "onLanguage:javascript",
-    "onLanguage:javascriptreact",
-    "onLanguage:markdown",
-    "onLanguage:java",
-    "onLanguage:python",
-    "onLanguage:csharp",
-    "onLanguage:cpp"
+    "onLanguage"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -52,16 +44,16 @@
           "when": "!docHelper:dochInitialized"
         },
         {
+          "id": "doc-helper-tasks",
+          "name": "Task Tracker",
+          "icon": "$(checklist)",
+          "when": "docHelper:dochInitialized"
+        },
+        {
           "id": "doc-helper-chatbot",
           "name": "AI Chatbot",
           "type": "webview",
           "icon": "resources/icon.svg",
-          "when": "docHelper:dochInitialized"
-        },
-        {
-          "id": "doc-helper-tasks",
-          "name": "Task Tracker",
-          "icon": "$(checklist)",
           "when": "docHelper:dochInitialized"
         }
       ],
@@ -109,6 +101,60 @@
         "command": "doc-helper-0711.checkDocIssue",
         "title": "Check Documentation Issues",
         "icon": "$(alert)"
+      },
+      {
+        "command": "doc-helper-0711.addTask",
+        "title": "Add New Task",
+        "icon": "$(add)"
+      },
+      {
+        "command": "doc-helper-0711.toggleTask",
+        "title": "Toggle Task Completion"
+      },
+      {
+        "command": "doc-helper-0711.editTask",
+        "title": "Edit Task",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "doc-helper-0711.deleteTask",
+        "title": "Delete Task",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "doc-helper-0711.jumpToTaskFile",
+        "title": "Jump to File",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "doc-helper-0711.sortTasksByPriority",
+        "title": "Sort Tasks by Priority",
+        "icon": "$(list-ordered)"
+      },
+      {
+        "command": "doc-helper-0711.sortTasksByCreation",
+        "title": "Sort Tasks by Creation Order",
+        "icon": "$(calendar)"
+      },
+      {
+        "command": "doc-helper-0711.sortTasksAlphabetically",
+        "title": "Sort Tasks Alphabetically",
+        "icon": "$(symbol-text)"
+      },
+      {
+        "command": "doc-helper-0711.sortTasksByStatus",
+        "title": "Sort Tasks by Status",
+        "icon": "$(check-all)"
+      },
+      {
+        "command": "doc-helper-0711.sortTasksByDeadline",
+        "title": "Sort Tasks by Deadline",
+        "icon": "$(watch)"
+      },
+      {
+        "command": "doc-helper-0711.toggleTaskSort",
+        "title": "Choose Task Sort Mode",
+        "icon": "$(list-filter)"
       },
       {
         "command": "doc-helper-0711.searchFile",
@@ -164,60 +210,6 @@
       {
         "command": "doc-helper-0711.reportIssue",
         "title": "Doc Helper: Report Issue"
-      },
-      {
-        "command": "doc-helper-0711.addTask",
-        "title": "Add New Task",
-        "icon": "$(add)"
-      },
-      {
-        "command": "doc-helper-0711.toggleTask",
-        "title": "Toggle Task Completion"
-      },
-      {
-        "command": "doc-helper-0711.editTask",
-        "title": "Edit Task",
-        "icon": "$(edit)"
-      },
-      {
-        "command": "doc-helper-0711.deleteTask",
-        "title": "Delete Task",
-        "icon": "$(trash)"
-      },
-      {
-        "command": "doc-helper-0711.jumpToTaskFile",
-        "title": "Jump to File",
-        "icon": "$(go-to-file)"
-      },
-      {
-        "command": "doc-helper-0711.sortTasksByPriority",
-        "title": "Sort Tasks by Priority",
-        "icon": "$(list-ordered)"
-      },
-      {
-        "command": "doc-helper-0711.sortTasksByCreation",
-        "title": "Sort Tasks by Creation Order",
-        "icon": "$(calendar)"
-      },
-      {
-        "command": "doc-helper-0711.sortTasksAlphabetically",
-        "title": "Sort Tasks Alphabetically",
-        "icon": "$(symbol-text)"
-      },
-      {
-        "command": "doc-helper-0711.sortTasksByStatus",
-        "title": "Sort Tasks by Status",
-        "icon": "$(check-all)"
-      },
-      {
-        "command": "doc-helper-0711.sortTasksByDeadline",
-        "title": "Sort Tasks by Deadline",
-        "icon": "$(watch)"
-      },
-      {
-        "command": "doc-helper-0711.toggleTaskSort",
-        "title": "Choose Task Sort Mode",
-        "icon": "$(list-filter)"
       }
     ],
     "commandPalette": [
@@ -348,18 +340,6 @@
           "type": "boolean",
           "default": true,
           "description": "Enable ghost text suggestions for documentation writing"
-        },
-        "taskTracker.sortMode": {
-          "type": "string",
-          "enum": ["creation", "priority", "alphabetical", "status"],
-          "default": "creation",
-          "description": "Default sort mode for tasks",
-          "enumDescriptions": [
-            "Sort by creation date (newest first)",
-            "Sort by priority level (high → medium → low)",
-            "Sort alphabetically by title",
-            "Sort by completion status (pending first)"
-          ]
         }
       }
     }

@@ -1,6 +1,25 @@
 import * as vscode from 'vscode';
-import { Task } from '../models/task';
-import { TaskManager } from '../services/taskManager';
+
+interface Task {
+    id: string;
+    title: string;
+    description: string;
+    completed: boolean;
+    priority: 'low' | 'medium' | 'high';
+    createdAt: Date;
+    updatedAt: Date;
+    deadline?: Date; 
+    fileUri?: string; 
+    lineNumber?: number; 
+}
+
+interface TaskProvider {
+    getTasks(): Task[];
+    addTask(task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Task;
+    updateTask(id: string, updates: Partial<Task>): Task | undefined;
+    deleteTask(id: string): boolean;
+    toggleTask(id: string): Task | undefined;
+}
 
 export enum SortMode {
     CreationOrder = 'creation',
@@ -8,6 +27,93 @@ export enum SortMode {
     Alphabetical = 'alphabetical',
     Status = 'status',
     Deadline = 'deadline'
+}
+
+export class TaskManager implements TaskProvider {
+    private tasks: Task[] = [];
+    private context: vscode.ExtensionContext;
+    private readonly STORAGE_KEY = 'docHelper.tasks';
+
+    constructor(context: vscode.ExtensionContext) {
+        this.context = context;
+        this.loadTasks();
+    }
+
+    getTasks(): Task[] {
+        return [...this.tasks];
+    }
+
+    addTask(taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Task {
+        const task: Task = {
+            ...taskData,
+            id: this.generateId(),
+            createdAt: new Date(),
+            updatedAt: new Date()
+        };
+        
+        this.tasks.push(task);
+        this.saveTasks();
+        return task;
+    }
+
+    updateTask(id: string, updates: Partial<Task>): Task | undefined {
+        const taskIndex = this.tasks.findIndex(task => task.id === id);
+        if (taskIndex === -1) {
+            return undefined;
+        }
+
+        this.tasks[taskIndex] = {
+            ...this.tasks[taskIndex],
+            ...updates,
+            updatedAt: new Date()
+        };
+
+        this.saveTasks();
+        return this.tasks[taskIndex];
+    }
+
+    deleteTask(id: string): boolean {
+        const initialLength = this.tasks.length;
+        this.tasks = this.tasks.filter(task => task.id !== id);
+        
+        if (this.tasks.length !== initialLength) {
+            this.saveTasks();
+            return true;
+        }
+        return false;
+    }
+
+    toggleTask(id: string): Task | undefined {
+        const task = this.tasks.find(task => task.id === id);
+        if (task) {
+            task.completed = !task.completed;
+            task.updatedAt = new Date();
+            this.saveTasks();
+            return task;
+        }
+        return undefined;
+    }
+
+    private generateId(): string {
+        return Date.now().toString(36) + Math.random().toString(36).substr(2);
+    }
+
+    private saveTasks(): void {
+        this.context.globalState.update(this.STORAGE_KEY, this.tasks);
+    }
+
+    private loadTasks(): void {
+        const stored = this.context.globalState.get<Task[]>(this.STORAGE_KEY);
+        if (stored) {
+            // Convert date strings back to Date objects
+            this.tasks = stored.map(task => ({
+                ...task,
+                createdAt: new Date(task.createdAt),
+                updatedAt: new Date(task.updatedAt),
+                deadline: task.deadline ? new Date(task.deadline) : undefined
+            }));
+        }
+    }
 }
 
 export class TaskTreeItem extends vscode.TreeItem {
@@ -118,13 +224,13 @@ export class TaskTreeItem extends vscode.TreeItem {
                 return new vscode.ThemeIcon('warning', new vscode.ThemeColor('errorForeground'));
             } else if (diffDays === 0) {
                 // Due today - urgent
-                return new vscode.ThemeIcon('clock', new vscode.ThemeColor('errorForeground'));
+                return new vscode.ThemeIcon('watch', new vscode.ThemeColor('errorForeground'));
             } else if (diffDays === 1) {
                 // Due tomorrow - warning
-                return new vscode.ThemeIcon('clock', new vscode.ThemeColor('notificationsWarningIcon.foreground'));
+                return new vscode.ThemeIcon('watch', new vscode.ThemeColor('notificationsWarningIcon.foreground'));
             } else if (diffDays <= 3) {
                 // Due soon - caution
-                return new vscode.ThemeIcon('watch', new vscode.ThemeColor('notificationsWarningIcon.foreground'));
+                return new vscode.ThemeIcon('watch', new vscode.ThemeColor('foreground'));
             }
         }
         
@@ -249,12 +355,18 @@ export class TaskTreeProvider implements vscode.TreeDataProvider<TaskTreeItem> {
                     if (!a.deadline && !b.deadline) {
                         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
                     }
-                    if (!a.deadline) return 1;
-                    if (!b.deadline) return -1;
+                    if (!a.deadline) {
+                        return 1;
+                    }
+                    if (!b.deadline) {
+                        return -1;
+                    }
                     
                     // Sort by deadline (earliest first)
                     const deadlineCompare = a.deadline.getTime() - b.deadline.getTime();
-                    if (deadlineCompare !== 0) return deadlineCompare;
+                    if (deadlineCompare !== 0) {
+                        return deadlineCompare;
+                    }
                     
                     // If same deadline, sort by priority
                     const priorityOrder = { high: 0, medium: 1, low: 2 };
