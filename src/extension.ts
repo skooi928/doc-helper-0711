@@ -3,9 +3,11 @@ import { initDochRepo, updateDochContext, watchDocState, getWorkspaceConfig, cre
 import { ChatbotViewProvider } from './providers/chatbotViewProvider'; 
 import { FileStatusItem, FileStatusProvider } from './providers/fileStatusProvider';
 import { registerFileLinkingProviders } from './providers/fileLinkingProvider';
+import { TaskTreeProvider, TaskManager, SortMode } from './providers/taskTreeProvider';
 import { registerMissingDocCodeActions } from './providers/missingDocCodeActionProvider';
 import { registerWrongNumberingCodeActions } from './providers/wrongNumberingCodeActionProvider';
 import { generateDocumentation, summarizeDocumentation, checkDocumentation, registerInlineSuggestionProvider } from './utils/simplifyWriting';
+import { addTask, editTask, toggleSort } from './utils/todoTracker';
 
 export function activate(context: vscode.ExtensionContext) {
   // Update on start
@@ -40,6 +42,92 @@ export function activate(context: vscode.ExtensionContext) {
   createConfigWatcher(context, () => {
     updateStatus(vscode.window.activeTextEditor); // Refresh status when config changes
   });
+
+  // Register task tracker provider and commands after the doch repo is initialized
+  const taskManager = new TaskManager(context);
+  const taskTreeProvider = new TaskTreeProvider(taskManager);
+  context.subscriptions.push(
+    vscode.window.registerTreeDataProvider('doc-helper-tasks', taskTreeProvider),
+    vscode.commands.registerCommand('doc-helper-0711.addTask', () => addTask(context, taskManager, taskTreeProvider)),
+    vscode.commands.registerCommand('doc-helper-0711.toggleTask', async (taskId: string) => {
+      const task = taskManager.toggleTask(taskId);
+      if (task) {
+          taskTreeProvider.refresh();
+          const status = task.completed ? 'completed' : 'pending';
+          vscode.window.showInformationMessage(`Task marked as ${status}`);
+      }
+    }),
+    vscode.commands.registerCommand('doc-helper-0711.editTask', (taskTreeItem: any) => editTask(context, taskManager, taskTreeProvider, taskTreeItem)),
+    vscode.commands.registerCommand('doc-helper-0711.deleteTask', async (taskTreeItem: any) => {
+      const taskId = taskTreeItem.task.id;
+      const task = taskManager.getTasks().find(t => t.id === taskId);
+      
+      if (!task) {
+        return;
+      }
+
+      const confirmation = await vscode.window.showWarningMessage(
+          `Delete task "${task.title}"?`,
+          { modal: true },
+          'Delete'
+      );
+
+      if (confirmation === 'Delete') {
+          taskManager.deleteTask(taskId);
+          taskTreeProvider.refresh();
+          vscode.window.showInformationMessage('Task deleted successfully!');
+      }
+    }),
+    vscode.commands.registerCommand('doc-helper-0711.jumpToTaskFile', async (taskTreeItem: any) => {
+      const task = taskTreeItem.task;
+      
+      if (task.fileUri) {
+        try {
+          // Handle both file paths and URIs
+          let uri: vscode.Uri;
+          if (task.fileUri.startsWith('file://') || task.fileUri.includes('://')) {
+            uri = vscode.Uri.parse(task.fileUri);
+          } else {
+            uri = vscode.Uri.file(task.fileUri);
+          }
+          
+          const document = await vscode.workspace.openTextDocument(uri);
+          const editor = await vscode.window.showTextDocument(document);
+          
+          if (task.lineNumber && task.lineNumber > 0) {
+            const position = new vscode.Position(task.lineNumber - 1, 0);
+            editor.selection = new vscode.Selection(position, position);
+            editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
+          }
+        } catch (error) {
+          vscode.window.showErrorMessage(`Could not open file: ${task.fileUri}`);
+        }
+      } else {
+        vscode.window.showInformationMessage('This task is not linked to any file.');
+      }
+    }),
+    vscode.commands.registerCommand('doc-helper-0711.sortTasksByPriority', () => {
+      taskTreeProvider.setSortMode(SortMode.Priority);
+      vscode.window.showInformationMessage('Tasks sorted by priority');
+    }),
+    vscode.commands.registerCommand('doc-helper-0711.sortTasksByCreation', () => {
+      taskTreeProvider.setSortMode(SortMode.CreationOrder);
+      vscode.window.showInformationMessage('Tasks sorted by creation order');
+    }),
+    vscode.commands.registerCommand('doc-helper-0711.sortTasksAlphabetically', () => {
+      taskTreeProvider.setSortMode(SortMode.Alphabetical);
+      vscode.window.showInformationMessage('Tasks sorted alphabetically');
+    }),
+    vscode.commands.registerCommand('doc-helper-0711.sortTasksByStatus', () => {
+      taskTreeProvider.setSortMode(SortMode.Status);
+      vscode.window.showInformationMessage('Tasks sorted by status');
+    }),
+    vscode.commands.registerCommand('doc-helper-0711.sortTasksByDeadline', () => {
+      taskTreeProvider.setSortMode(SortMode.Deadline);
+      vscode.window.showInformationMessage('Tasks sorted by deadline');
+    }),
+    vscode.commands.registerCommand('doc-helper-0711.toggleTaskSort', async () => toggleSort(taskTreeProvider))
+  );
 
   // Webview after the doch repo is initialized
 	const chatbotViewProvider = new ChatbotViewProvider(context.extensionUri); 
