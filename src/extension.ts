@@ -9,9 +9,19 @@ import { FileStatusItem, FileStatusProvider } from './providers/fileStatusProvid
 import { registerFileLinkingProviders } from './providers/fileLinkingProvider';
 import { registerMissingDocCodeActions } from './providers/missingDocCodeActionProvider';
 import { registerWrongNumberingCodeActions } from './providers/wrongNumberingCodeActionProvider';
-import { generateDocumentation, summarizeDocumentation, checkDocumentation, registerInlineSuggestionProvider } from './utils/simplifyWriting';
+import { generateDocumentation, summarizeDocumentation, checkDocumentation, registerInlineSuggestionProvider, summarizeAllDocsWithReview } from './utils/simplifyWriting';
 
 export function activate(context: vscode.ExtensionContext) {
+  context.subscriptions.push(
+    vscode.commands.registerCommand('doc-helper-0711.generateComment', async (fileUri?: vscode.Uri) => {
+      await require('./utils/simplifyWriting').generateCommentAndInsert(fileUri);
+    })
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand('doc-helper-0711.summarizeAllDocs', async () => {
+      await summarizeAllDocsWithReview(context);
+    })
+  );
   const aiService = new AIService();
   context.subscriptions.push(
     vscode.commands.registerCommand('doc-helper-0711.UpdateDoc', async (item: FileStatusItem) => {

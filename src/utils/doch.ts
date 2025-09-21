@@ -1,3 +1,4 @@
+
 import * as vscode from 'vscode';
 
 /* These templates assume you'll implement commands like 
@@ -194,4 +195,47 @@ export function watchDocState(onChange: () => void): vscode.Disposable {
   watcher.onDidChange(onChange);
   watcher.onDidDelete(onChange);
   return watcher;
+}
+
+// Update README.md entry in .doch/metadata/doc-state.json
+export async function updateReadmeDocState() {
+  const folders = vscode.workspace.workspaceFolders;
+  if (!folders?.length) { return; }
+  const folder = folders[0];
+  const readmeRel = 'README.md';
+  const readmeUri = vscode.Uri.joinPath(folder.uri, readmeRel);
+  const stateUri = vscode.Uri.joinPath(folder.uri, '.doch', 'metadata', 'doc-state.json');
+  try {
+    await vscode.workspace.fs.stat(readmeUri);
+  } catch {
+    // README.md does not exist
+    return;
+  }
+  let commitTimestamp = undefined;
+  try {
+    // Try to get git commit time
+    const git = require('child_process');
+    const cwd = folder.uri.fsPath;
+    const result = git.execSync('git log -1 --format="%cI" README.md', { cwd });
+    commitTimestamp = result.toString().trim();
+  } catch {
+    // Fallback to file mtime
+    try {
+      const stat = await vscode.workspace.fs.stat(readmeUri);
+      commitTimestamp = new Date(stat.mtime).toISOString();
+    } catch {}
+  }
+  if (!commitTimestamp) { return; }
+  let state: Record<string, { documented: boolean; timestamp: string }> = {};
+  try {
+    const buf = await vscode.workspace.fs.readFile(stateUri);
+    state = JSON.parse(buf.toString());
+  } catch {
+    state = {};
+  }
+  state[readmeRel] = {
+    documented: true,
+    timestamp: commitTimestamp
+  };
+  await vscode.workspace.fs.writeFile(stateUri, Buffer.from(JSON.stringify(state, null, 2), 'utf8'));
 }

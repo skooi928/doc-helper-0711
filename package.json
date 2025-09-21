@@ -121,6 +121,11 @@
         "icon": "$(eye-closed)"
       },
       {
+        "command": "doc-helper-0711.summarizeAllDocs",
+        "title": "Summarize All Documentations",
+        "icon": "$(sparkle)"
+      },
+      {
         "command": "doc-helper-0711.openFile",
         "title": "Open File"
       },
@@ -162,9 +167,15 @@
         "title": "Renumber All Headings"
       },
       {
+        "command": "doc-helper-0711.generateComment",
+        "title": "Doc Helper: Generate Comment",
+        "icon": "$(comment)"
+      },
+      {
         "command": "doc-helper-0711.reportIssue",
         "title": "Doc Helper: Report Issue"
       }
+
     ],
     "commandPalette": [
       {
@@ -219,6 +230,12 @@
         },
 
         {
+          "command": "doc-helper-0711.summarizeAllDocs",
+          "when": "view == doc-helper-stats",
+          "group": "navigation@-1"
+        },
+
+        {
           "command": "doc-helper-0711.selectAndGenerateDocs",
           "when": "view == doc-helper-stats",
           "group": "navigation@-2"
@@ -230,6 +247,7 @@
           "when": "docHelper:dochInitialized == true",
           "group": "navigation@0"
         }
+  
       ],
       "editor/title/context": [
         {
@@ -243,6 +261,11 @@
           "command": "doc-helper-0711.toggleLink",
           "when": "resourceLangId == markdown && docHelper:dochInitialized == true",
           "group": "DocHelper@1"
+        },
+        {
+          "command": "doc-helper-0711.generateComment",
+          "when": "docHelper:dochInitialized == true",
+          "group": "DocHelper@3"
         }
       ],
       "editor/context": [
@@ -255,6 +278,11 @@
           "command": "doc-helper-0711.toggleGhostSuggestion",
           "when": "docHelper:dochInitialized == true",
           "group": "DocHelper@2"
+        },
+        {
+          "command": "doc-helper-0711.generateComment",
+          "when": "editorHasSelection && docHelper:dochInitialized == true",
+          "group": "DocHelper@3"
         }
       ]
     },

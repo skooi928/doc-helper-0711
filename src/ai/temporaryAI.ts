@@ -1,11 +1,36 @@
-// THIS IS A TEMPORARY FILE FOR DEMO PURPOSES ONLY
-// Real implementation will be in the backend folder with Spring Boot
-
-// For demo, we will use vscode api
-
 import * as vscode from 'vscode';
 
 export class AIService {
+    async generateComment(code: string, language: string): Promise<string> {
+        const model = await this.getLanguageModel();
+        if (!model) {
+            throw new Error('No language model available. Please ensure you have GitHub Copilot or other language models enabled in VS Code.');
+        }
+        const messages = [
+            vscode.LanguageModelChatMessage.User(
+                `You are a senior developer. Write a concise, high-quality comment for the following ${language} code. The comment should explain what the code does, its purpose, and any important details. Do not repeat the code itself. Use the appropriate comment style for the language.`
+            ),
+            vscode.LanguageModelChatMessage.User(`Code:
+${code}`)
+        ];
+        try {
+            const response = await model.sendRequest(
+                messages,
+                {},
+                new vscode.CancellationTokenSource().token
+            );
+            let comment = '';
+            for await (const fragment of response.text) {
+                comment += fragment;
+            }
+            return comment.trim();
+        } catch (error) {
+            if (error instanceof vscode.LanguageModelError) {
+                throw new Error(`Language model error: ${error.message}`);
+            }
+            throw new Error(`Failed to generate comment: ${error}`);
+        }
+    }
     constructor() {}
 
     private async getLanguageModel(): Promise<vscode.LanguageModelChat | null> {
