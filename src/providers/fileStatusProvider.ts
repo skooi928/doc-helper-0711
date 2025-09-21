@@ -64,7 +64,7 @@ export class FileStatusProvider implements vscode.TreeDataProvider<FileStatusIte
     const { extensions, regex, sourceDirectories } = await getWorkspaceConfig(workspaceFolder);
     
     // Load .doch metadata state - same as extension.ts loadState()
-    async function loadState(): Promise<Record<string, { documented: boolean; timestamp: string }>> {
+    async function loadState(): Promise<Record<string, { documented: boolean; timestamp: string; status?: 'uptodate' | 'outdated' | 'nodocs' }>> {
       const stateUri = vscode.Uri.joinPath(root, '.doch', 'metadata', 'doc-state.json');
       try {
         const buf = await vscode.workspace.fs.readFile(stateUri);
@@ -154,10 +154,10 @@ export class FileStatusProvider implements vscode.TreeDataProvider<FileStatusIte
         if (!docExists) {
           status = 'Undocumented';
         }
-        else if (entry && commitTime !== undefined && ((commitTime < codeTime) || (commitTime < docTime))) {
+        else if (entry && commitTime !== undefined && ((commitTime < codeTime) || entry.status === 'outdated')) {
           status = 'Out-of-Date';
         }
-        else if (entry && entry.documented) {
+        else if (entry && entry.documented && entry.status === 'uptodate') {
           status = 'Documented';
         }
         else {
@@ -208,10 +208,10 @@ export class FileStatusProvider implements vscode.TreeDataProvider<FileStatusIte
           const entry = state[srcRel];
           const commitTime = entry ? Date.parse(entry.timestamp) : undefined;
 
-          if (entry && commitTime !== undefined && ((commitTime < codeTime) || (commitTime < docsTime))) {
+          if (entry && commitTime !== undefined && (entry.status === 'outdated')) {
             status = 'Out-of-Date-md'; // "Stale"
           }
-          else if (entry && entry.documented) {
+          else if (entry && entry.documented && entry.status === 'uptodate') {
             status = 'Documented-md'; // "Sync"
           }
           else {

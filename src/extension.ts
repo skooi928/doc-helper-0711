@@ -9,7 +9,7 @@ import { registerWrongNumberingCodeActions } from './providers/wrongNumberingCod
 import { generateDocumentation, summarizeDocumentation, checkDocumentation, registerInlineSuggestionProvider } from './utils/simplifyWriting';
 import { addTask, editTask, toggleSort } from './utils/todoTracker';
 
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
   // Update on start
   updateDochContext();
 
@@ -263,11 +263,15 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   // Refresh on any source/docs change
-  const codeWatcher = vscode.workspace.createFileSystemWatcher('**/*.{ts,js,tsx,jsx,md}');
-  codeWatcher.onDidCreate(() => fileStatusProvider.refresh());
-  codeWatcher.onDidChange(() => fileStatusProvider.refresh());
-  codeWatcher.onDidDelete(() => fileStatusProvider.refresh());
-  context.subscriptions.push(codeWatcher);
+  const { extensions } = await getWorkspaceConfig(vscode.workspace.workspaceFolders?.[0]!);
+  if (extensions) {
+    const extPattern = extensions.length > 1 ? extensions.join(',') : extensions[0];
+    const codeWatcher = vscode.workspace.createFileSystemWatcher(`**/*.{${extPattern},md}`);
+    codeWatcher.onDidCreate(() => {fileStatusProvider.refresh(); updateStatus(vscode.window.activeTextEditor);});
+    codeWatcher.onDidChange(() => {fileStatusProvider.refresh(); updateStatus(vscode.window.activeTextEditor);});
+    codeWatcher.onDidDelete(() => {fileStatusProvider.refresh(); updateStatus(vscode.window.activeTextEditor);});
+    context.subscriptions.push(codeWatcher);
+  }
 
   // Refresh when config.yml changes
   const configymlWatcher = vscode.workspace.createFileSystemWatcher('**/.doch/config.yml');
@@ -285,9 +289,9 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Refresh when .dochignore changes
   const dochIgnoreWatcher = vscode.workspace.createFileSystemWatcher('**/.dochignore');
-  dochIgnoreWatcher.onDidCreate(() => fileStatusProvider.refresh());
-  dochIgnoreWatcher.onDidChange(() => fileStatusProvider.refresh());
-  dochIgnoreWatcher.onDidDelete(() => fileStatusProvider.refresh());
+  dochIgnoreWatcher.onDidCreate(() => {fileStatusProvider.refresh(); updateStatus(vscode.window.activeTextEditor);});
+  dochIgnoreWatcher.onDidChange(() => {fileStatusProvider.refresh(); updateStatus(vscode.window.activeTextEditor);});
+  dochIgnoreWatcher.onDidDelete(() => {fileStatusProvider.refresh(); updateStatus(vscode.window.activeTextEditor);});
   context.subscriptions.push(dochIgnoreWatcher);
 
   const config = vscode.workspace.getConfiguration('docHelper');
@@ -488,7 +492,7 @@ export function activate(context: vscode.ExtensionContext) {
   statusBarItem.command = 'doc-helper-0711.statusBarMenu';
 
   // function to load json state from .doch/metadata/doc-state.json
-  async function loadState(): Promise<Record<string, { documented: boolean; timestamp: string }>> {
+  async function loadState(): Promise<Record<string, { documented: boolean; timestamp: string; status?: 'uptodate' | 'outdated' | 'nodocs' }>> {
     const folders = vscode.workspace.workspaceFolders;
     if (!folders?.length) {
       return {};
@@ -555,8 +559,6 @@ export function activate(context: vscode.ExtensionContext) {
       const codeUri = vscode.Uri.joinPath(folder.uri, ...rel.split(/[\\/]/));
       const codeStat = await vscode.workspace.fs.stat(codeUri);
       const codeTime = Math.max(codeStat.ctime, codeStat.mtime);
-      const docStat = docExists ? await vscode.workspace.fs.stat(docUri) : undefined;
-      const docTime = docStat ? Math.max(docStat.ctime, docStat.mtime) : 0;
       const entry = state[rel];
       const commitTime = entry ? Date.parse(entry.timestamp) : undefined;
 
@@ -564,11 +566,11 @@ export function activate(context: vscode.ExtensionContext) {
         text = '$(alert) Undocumented';
         bg = new vscode.ThemeColor('statusBarItem.errorBackground');
       }
-      else if (entry && commitTime !== undefined && ((commitTime < codeTime) || (commitTime < docTime))) {
+      else if (entry && commitTime !== undefined && ((commitTime < codeTime) || entry.status === 'outdated')) {
         text = '$(alert) Stale';
         bg = new vscode.ThemeColor('statusBarItem.warningBackground');
       }
-      else if (entry && entry.documented) {
+      else if (entry && entry.documented && entry.status === 'uptodate') {
         text = '$(check) Documented';
         bg = undefined;
       }
@@ -617,11 +619,11 @@ export function activate(context: vscode.ExtensionContext) {
         const entry = state[srcRel];
         const commitTime = entry ? Date.parse(entry.timestamp) : undefined;
 
-        if (entry && commitTime !== undefined && ((commitTime < codeTime) || (commitTime < docsTime))) {
+        if (entry && commitTime !== undefined && (entry.status === 'outdated')) {
           text = '$(alert) Stale';
           bg = new vscode.ThemeColor('statusBarItem.warningBackground');
         }
-        else if (entry && entry.documented) {
+        else if (entry && entry.documented && entry.status === 'uptodate') {
           text = '$(check) Sync';
           bg = undefined;
         }

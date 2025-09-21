@@ -3,11 +3,14 @@ import * as path from 'path';
 import * as os from 'os';
 import * as yaml from 'js-yaml';
 import { minimatch } from 'minimatch';
+import { execSync } from 'child_process';
 
 export interface DocState {
   [sourceRel: string]: {
     documented: boolean;
     timestamp: string;
+    docTime?: string;
+    status?: 'uptodate' | 'outdated' | 'nodocs';
   };
 }
 
@@ -29,7 +32,7 @@ async function validateDochRepo(root: string): Promise<void> {
     // Check if .doch directory exists
     await fs.stat(dochDir);
   } catch {
-    throw new Error(`DocHelper not initialized. Run "doch init" or initialize from VS Code extension first.\nMissing: ${dochDir}`);
+    throw new Error(`DocHelper not initialized. Initialize from VS Code extension first.\nMissing: ${dochDir}`);
   }
 
   try {
@@ -168,6 +171,20 @@ async function getWorkspaceConfig(root: string): Promise<{ extensions: string[],
   return { extensions, regex, sourceDirectories };
 }
 
+async function getLastCommitMessage(filePath: string, root: string): Promise<string> {
+  try {
+    const relativePath = path.relative(root, filePath).replace(/\\/g, '/');
+    const output = execSync(
+      `git log -n 1 --pretty=format:"%s" -- "${relativePath}"`,
+      { cwd: root, encoding: 'utf8' }
+    );
+    return output.trim();
+  } catch (error) {
+    console.log(`Could not get commit message for ${filePath}: ${error}`);
+    return '';
+  }
+}
+
 export async function driftNode(files: string[], root: string) {
   await validateDochRepo(root);
   const ignorePatterns = await loadIgnorePatterns(root);
@@ -182,8 +199,7 @@ export async function driftNode(files: string[], root: string) {
     }
 
     const isInSourceDir = sourceDirectories.some(dir => rel.startsWith(`${dir}/`));
-    if (!isInSourceDir || !regex.test(rel)) {
-      console.log(`Skipping ${rel}: not in configured source directories or invalid extension`);
+    if ((!isInSourceDir || !regex.test(rel)) && !rel.startsWith(docsDirectory)) {
       continue;
     }
 
@@ -203,13 +219,54 @@ export async function driftNode(files: string[], root: string) {
     }
     
     const fullDoc = path.join(root, docRel);
-    let documented = true;
+    const fullSrc = path.join(root, rel);
+
     try {
-      await fs.stat(fullDoc);
-    } catch {
-      documented = false;
+      const docStat = await fs.stat(fullDoc);
+      const srcStat = await fs.stat(fullSrc);
+
+      // Get timestamps
+      const docTime = state[rel].docTime !== undefined ? Date.parse(state[rel].docTime!) : Math.max(docStat.ctime.getTime(), docStat.mtime.getTime());
+      const srcTime = state[rel].timestamp !== undefined ? Date.parse(state[rel].timestamp) : Math.max(srcStat.ctime.getTime(), srcStat.mtime.getTime());
+      
+      // Compare timestamps
+      if (docTime >= srcTime) {
+          state[rel] = { 
+          documented: true, 
+          timestamp: new Date().toISOString(),
+          docTime: new Date().toISOString(),
+          status: 'uptodate'
+        };
+      } else {
+        // Source is newer than doc - check commit message
+        const commitMessage = await getLastCommitMessage(fullSrc, root);
+        const minorChangeKeywords = ['fix', 'bug', 'no-doc', 'nodoc', 'refactor', 'style', 'format'];
+        
+        if (minorChangeKeywords.some(keyword => 
+            commitMessage.toLowerCase().includes(keyword))) {
+          // Minor change that doesn't require doc update
+          state[rel] = { 
+            documented: true, 
+            timestamp: new Date().toISOString(),
+            docTime: new Date().toISOString(),
+            status: 'uptodate' 
+          };
+        } else {
+          // Major change, docs are outdated
+          state[rel] = { 
+            documented: true, 
+            timestamp: new Date().toISOString(),
+            status: 'outdated' 
+          };
+        }
+      }
+    } catch (error) {
+        state[rel] = { 
+        documented: false, 
+        timestamp: new Date().toISOString(),
+        status: 'nodocs'
+      };
     }
-    state[rel] = { documented, timestamp: new Date().toISOString() };
   }
   await saveDocState(root, state);
   console.log(`Drift: updated ${files.length} entries`);

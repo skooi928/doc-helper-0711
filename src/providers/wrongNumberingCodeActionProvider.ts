@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-let globalContext: vscode.ExtensionContext;
+let workspaceContext: vscode.ExtensionContext;
 
 // Create a Diagnostic Collection for numbering issues
 const diagnosticCollection = vscode.languages.createDiagnosticCollection('docHelper');
@@ -15,7 +15,7 @@ interface HeadingInfo {
 }
 
 function getIgnoredNumbers(context: vscode.ExtensionContext, docUri: vscode.Uri): { number: number, level: number }[] {
-  const all = context.globalState.get<Record<string, { number: number, level: number }[]>>('ignoredNumberingProblems', {});
+  const all = context.workspaceState.get<Record<string, { number: number, level: number }[]>>('ignoredNumberingProblems', {});
   return all[docUri.toString()] || [];
 }
 
@@ -25,7 +25,7 @@ async function addIgnoredNumber(
   num: number,
   level: number
 ) {
-  const all = context.globalState.get<Record<string, { number: number, level: number }[]>>('ignoredNumberingProblems', {});
+  const all = context.workspaceState.get<Record<string, { number: number, level: number }[]>>('ignoredNumberingProblems', {});
   const key = docUri.toString();
   const arr = all[key] || [];
 
@@ -34,7 +34,7 @@ async function addIgnoredNumber(
   if (!exists) {
     arr.push({ number: num, level: level });
     all[key] = arr;
-    await context.globalState.update('ignoredNumberingProblems', all);
+    await context.workspaceState.update('ignoredNumberingProblems', all);
   }
 }
 
@@ -180,7 +180,7 @@ async function updateNumberingDiagnostics(document: vscode.TextDocument) {
   
   const headings = await extractHeadingInfo(document);
   const issues = analyzeNumberingSequence(headings);
-  const ignored = getIgnoredNumbers(globalContext, document.uri);
+  const ignored = getIgnoredNumbers(workspaceContext, document.uri);
   
   const diagnostics: vscode.Diagnostic[] = [];
   
@@ -344,7 +344,7 @@ export class WrongNumberingCodeActionProvider implements vscode.CodeActionProvid
 
 // Register the provider and set up document change listeners
 export function registerWrongNumberingCodeActions(context: vscode.ExtensionContext): vscode.Disposable {
-  globalContext = context;
+  workspaceContext = context;
   const provider = new WrongNumberingCodeActionProvider(context);
   
   // Register the code action provider
@@ -359,11 +359,11 @@ export function registerWrongNumberingCodeActions(context: vscode.ExtensionConte
       return;
     }
     // load the full map
-    const all = context.globalState.get<Record<string, number[]>>('ignoredNumberingProblems', {});
+    const all = context.workspaceState.get<Record<string, number[]>>('ignoredNumberingProblems', {});
     // remove this URI’s key
     delete all[doc.uri.toString()];
     // write it back
-    context.globalState.update('ignoredNumberingProblems', all);
+    context.workspaceState.update('ignoredNumberingProblems', all);
   });
   
   context.subscriptions.push(
@@ -513,6 +513,6 @@ vscode.commands.registerCommand(
     }
     const num = parseInt(match[1], 10);
     const level = parseInt(match[2], 10);
-    await addIgnoredNumber(globalContext, docUri, num, level);
+    await addIgnoredNumber(workspaceContext, docUri, num, level);
   }
 );

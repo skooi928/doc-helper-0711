@@ -40,14 +40,14 @@ if [ -f "$CONFIG_FILE" ]; then
   # Extract fileExtensions from YAML and build regex pattern
   EXTENSIONS=$(grep -A 10 "fileExtensions:" "$CONFIG_FILE" | grep "^  - " | sed 's/^  - "//g' | sed 's/"$//g' | tr '\n' '|' | sed 's/|$//')
   if [ -n "$EXTENSIONS" ]; then
-    PATTERN="\\\\.(\${EXTENSIONS})$"
+    PATTERN="\\\\.(\${EXTENSIONS}|md)$"
   else
     # Fallback to defaults if no extensions found
-    PATTERN="\\\\.(ts|js|tsx)$"
+    PATTERN="\\\\.(ts|js|tsx|md)$"
   fi
 else
   # Fallback to defaults if no config file
-  PATTERN="\\\\.(ts|js|tsx)$"
+  PATTERN="\\\\.(ts|js|tsx|md)$"
 fi
 
 # Check if this is the first commit (no parent)

@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { getWorkspaceConfig } from '../utils/doch';
 
-let globalContext: vscode.ExtensionContext;
+let workspaceContext: vscode.ExtensionContext;
 
 // -----------------------------------
 // HELPER FUNCTIONS
@@ -10,7 +10,7 @@ let globalContext: vscode.ExtensionContext;
 const diagnosticCollection = vscode.languages.createDiagnosticCollection('docHelper');
 
 function getIgnoredSymbols(context: vscode.ExtensionContext, docUri: vscode.Uri): string[] {
-  const all = context.globalState.get<Record<string,string[]>>('ignoredMissingDocs', {});
+  const all = context.workspaceState.get<Record<string,string[]>>('ignoredMissingDocs', {});
   return all[docUri.toString()] || [];
 }
 
@@ -19,13 +19,13 @@ async function addIgnoredSymbol(
   docUri: vscode.Uri,
   funcName: string
 ) {
-  const all = context.globalState.get<Record<string,string[]>>('ignoredMissingDocs', {});
+  const all = context.workspaceState.get<Record<string,string[]>>('ignoredMissingDocs', {});
   const key = docUri.toString();
   const arr = all[key] || [];
   if (!arr.includes(funcName)) {
     arr.push(funcName);
     all[key] = arr;
-    await context.globalState.update('ignoredMissingDocs', all);
+    await context.workspaceState.update('ignoredMissingDocs', all);
   }
 }
 
@@ -138,7 +138,7 @@ function updateDiagnostics(
   orderedSourceSymbols: vscode.DocumentSymbol[],
   mdSymbols: vscode.DocumentSymbol[]
 ) {
-  const ignored = getIgnoredSymbols(globalContext, doc.uri);
+  const ignored = getIgnoredSymbols(workspaceContext, doc.uri);
   const toReport = missingSymbols.filter(sym => !ignored.includes(sym.name));
   const diagnostics: vscode.Diagnostic[] = toReport.map(sym => {
     // Get the diagnostic position using our helper function; use a zero-length range at that position.
@@ -287,7 +287,7 @@ export class MissingDocCodeActionProvider implements vscode.CodeActionProvider {
 
 // Register the MissingDocCodeActionProvider for markdown files
 export function registerMissingDocCodeActions(context: vscode.ExtensionContext): vscode.Disposable {
-  globalContext = context;
+  workspaceContext = context;
   const provider = new MissingDocCodeActionProvider(context);
   const disposable = vscode.languages.registerCodeActionsProvider(
     { language: "markdown", scheme: "file" },
@@ -514,6 +514,6 @@ vscode.commands.registerCommand("doc-helper-0711.ignoreMissingDocs",
     const funcName = match[1];
 
     // add to ignored‐symbols list
-    await addIgnoredSymbol(globalContext, docUri, funcName);
+    await addIgnoredSymbol(workspaceContext, docUri, funcName);
   }
 );
