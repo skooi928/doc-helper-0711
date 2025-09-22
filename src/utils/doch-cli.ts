@@ -203,38 +203,79 @@ export async function driftNode(files: string[], root: string) {
       continue;
     }
 
+    let srcRel: string | undefined;
     let docRel: string | undefined;
-    for (const dir of sourceDirectories) {
-      if (rel.startsWith(`${dir}/`)) {
-        docRel = rel
-          .replace(new RegExp(`^${dir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/`), docsDirectory)
-          .replace(regex, '.md');
-        break;
+
+    if (rel.startsWith(docsDirectory) && rel.endsWith('.md')) {
+      // Documentation file logic - find corresponding source file
+      for (const dir of sourceDirectories) {
+        const base = rel
+          .replace(new RegExp('^' + docsDirectory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${dir}/`)
+          .replace(/\.md$/, '');
+        for (const ext of extensions) {
+          const candidate = `${base}.${ext}`;
+          const fullSrc = path.join(root, candidate);
+          try {
+            await fs.stat(fullSrc);
+            srcRel = candidate;
+            docRel = rel;
+            break;
+          } catch {
+            // not found, keep looking
+          }
+        }
+        if (srcRel && docRel) {
+          break;
+        }
+      }
+    } else {
+      // Source file logic - find corresponding doc file
+      for (const dir of sourceDirectories) {
+        if (rel.startsWith(`${dir}/`)) {
+          srcRel = rel;
+          docRel = rel
+            .replace(new RegExp(`^${dir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/`), docsDirectory)
+            .replace(regex, '.md');
+          break;
+        }
       }
     }
 
-    if (!docRel) {
-      console.log(`Could not determine documentation path for ${rel}, skipping.`);
+    if (!docRel || !srcRel) {
+      console.log(`Could not determine corresponding source/documentation path for ${rel}, skipping.`);
       continue;
     }
     
     const fullDoc = path.join(root, docRel);
-    const fullSrc = path.join(root, rel);
+    const fullSrc = path.join(root, srcRel);
 
     try {
       const docStat = await fs.stat(fullDoc);
       const srcStat = await fs.stat(fullSrc);
 
+      let docTime: string | undefined;
+      let srcTime: string | undefined;
       // Get timestamps
-      const docTime = state[rel].docTime !== undefined ? Date.parse(state[rel].docTime!) : Math.max(docStat.ctime.getTime(), docStat.mtime.getTime());
-      const srcTime = state[rel].timestamp !== undefined ? Date.parse(state[rel].timestamp) : Math.max(srcStat.ctime.getTime(), srcStat.mtime.getTime());
-      
+      if (files.includes(docRel) && files.includes(srcRel)) {
+        // Both files changed in this run
+        docTime = new Date().toISOString();
+        srcTime = new Date().toISOString();
+      } else if (files.includes(docRel)) {
+        // Only doc changed
+        docTime = new Date().toISOString();
+        srcTime = state[srcRel].timestamp;
+      } else {
+        // Only source changed
+        srcTime = new Date().toISOString();
+        docTime = state[srcRel]?.docTime || new Date(0).toISOString();
+      }
+
       // Compare timestamps
       if (docTime >= srcTime) {
-          state[rel] = { 
+        state[srcRel] = {  
           documented: true, 
-          timestamp: new Date().toISOString(),
-          docTime: new Date().toISOString(),
+          timestamp: srcTime,
+          docTime: docTime,
           status: 'uptodate'
         };
       } else {
@@ -245,23 +286,24 @@ export async function driftNode(files: string[], root: string) {
         if (minorChangeKeywords.some(keyword => 
             commitMessage.toLowerCase().includes(keyword))) {
           // Minor change that doesn't require doc update
-          state[rel] = { 
+          state[srcRel] = { 
             documented: true, 
-            timestamp: new Date().toISOString(),
-            docTime: new Date().toISOString(),
+            timestamp: srcTime,
+            docTime: docTime,
             status: 'uptodate' 
           };
         } else {
           // Major change, docs are outdated
-          state[rel] = { 
+          state[srcRel] = { 
             documented: true, 
-            timestamp: new Date().toISOString(),
+            timestamp: srcTime,
+            docTime: docTime,
             status: 'outdated' 
           };
         }
       }
     } catch (error) {
-        state[rel] = { 
+        state[srcRel] = { 
         documented: false, 
         timestamp: new Date().toISOString(),
         status: 'nodocs'
@@ -269,7 +311,7 @@ export async function driftNode(files: string[], root: string) {
     }
   }
   await saveDocState(root, state);
-  console.log(`Drift: updated ${files.length} entries`);
+  console.log(`Drift: updated ${files.length} files`);
 }
 
 export async function checkNode(files: string[], root: string) {
