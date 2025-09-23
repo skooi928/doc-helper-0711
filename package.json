@@ -1,6 +1,7 @@
 {
   "name": "doc-helper-0711",
   "displayName": "Doc Helper",
+  "publisher": "NeZhaPlayinginHeaven",
   "description": "AI assistant to documentation.",
   "version": "0.0.1",
   "engines": {
