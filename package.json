@@ -4,6 +4,18 @@
   "publisher": "NeZhaPlayinginHeaven",
   "description": "AI assistant to documentation.",
   "version": "0.0.1",
+  "author": {
+    "name": "NeZha"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/skooi928/doc-helper-0711.git"
+  },
+  "bugs": {
+    "url": "https://github.com/skooi928/doc-helper-0711/issues"
+  },
+  "homepage": "https://github.com/skooi928/doc-helper-0711#readme",
   "engines": {
     "vscode": "^1.103.0"
   },
