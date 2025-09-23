@@ -1,6 +1,6 @@
 # MIT License
 
-Copyright (c) 2024 Ne Zha Playing in Heaven
+Copyright (c) 2025 Ne Zha Playing in Heaven
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
