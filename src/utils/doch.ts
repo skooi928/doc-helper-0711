@@ -1,12 +1,6 @@
 import * as vscode from 'vscode';
 import * as yaml from 'js-yaml';
 
-/* These templates assume you'll implement commands like 
-doch check, doch suggest, doch drift, and doch dependencies 
-in your extension to handle the actual work. 
-
-The hooks provide the integration points with git workflow. */
-
 const TEMPLATE_CONFIG = `\
 # .doch/config.yml
 # Source directories to monitor
@@ -30,7 +24,7 @@ node_modules/**
 dist/**
 `;
 
-// Check doc drifting
+// Check doc drifting and update doc-state.json after each commit
 const HOOK_POST_COMMIT = `#!/usr/bin/env sh
 echo "DocHelper: Updating doc status…"
 
@@ -64,16 +58,149 @@ if [ -n "$CHANGED_SRC" ]; then
 fi 
 `;
 
-// Block pushing to github if there are undocumented or stale .md files
+// Warn pushing to github if there are undocumented or stale .md files
+// If pushing directly to main/master, block it
 const HOOK_PRE_PUSH = `#!/usr/bin/env sh
-echo "DocHelper: Blocking push if docs are stale…"
-CHANGED_MD=$(git diff --name-only origin/main...HEAD | grep -E '\\.md$')
-if [ -n "$CHANGED_MD" ]; then
-  echo "$CHANGED_MD" | xargs npx doch check --exit-on-failure
-  [ $? -ne 0 ] && { echo "🚫 Push blocked: Documentation is stale."; exit 1; }
+echo "DocHelper: Checking documentation status before push…"
+
+# Check if pushing to main branch
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+PUSHING_TO_MAIN=false
+
+# Check if any of the push destinations is main/master
+while read local_ref local_sha remote_ref remote_sha; do
+  if [ "$remote_ref" = "refs/heads/main" ] || [ "$remote_ref" = "refs/heads/master" ]; then
+    PUSHING_TO_MAIN=true
+    break
+  fi
+done
+
+# Read file extensions from config.yml
+CONFIG_FILE=".doch/config.yml"
+if [ -f "$CONFIG_FILE" ]; then
+  # Extract fileExtensions from YAML and build regex pattern
+  EXTENSIONS=$(grep -A 10 "fileExtensions:" "$CONFIG_FILE" | grep "^  - " | sed 's/^  - "//g' | sed 's/"$//g' | tr '\n' '|' | sed 's/|$//')
+  if [ -n "$EXTENSIONS" ]; then
+    PATTERN="\\\\.(\${EXTENSIONS}|md)$"
+  else
+    # Fallback to defaults if no extensions found
+    PATTERN="\\\\.(ts|js|tsx|md)$"
+  fi
+else
+  # Fallback to defaults if no config file
+  PATTERN="\\\\.(ts|js|tsx|md)$"
 fi
+
+CHANGED_MD=$(git diff --name-only origin/main...HEAD | grep -E "\${PATTERN}")
+if [ -n "$CHANGED_MD" ]; then
+  echo "$CHANGED_MD" | xargs npx doch check
+  if [ $? -ne 0 ]; then
+    echo ""
+    # If pushing directly to main, block it
+    if [ "$PUSHING_TO_MAIN" = true ] || ([ "$CURRENT_BRANCH" = "main" ] || [ "$CURRENT_BRANCH" = "master" ]); then
+      echo "Warning: Direct push to main branch with stale documentation is not allowed!"
+      exit 1
+    else
+      echo "🚧 Warning: Documentation is stale or missing!"
+      read -p "Continue push anyway? [Y/N] " yn < /dev/tty
+      if [ "$yn" = "y" ] || [ "$yn" = "Y" ]; then
+        echo "Proceeding with push…"
+      else
+        echo "Push aborted. Please fix documentation issues first."
+        exit 1
+      fi
+    fi
+  fi
+fi
+
+exit 0
 `;
 
+// Warn merging if there are undocumented or stale .md files
+const HOOK_PRE_MERGE_COMMIT = `#!/usr/bin/env sh
+echo "DocHelper: Checking documentation status before merge…"
+
+# Check if this is actually a merge (MERGE_HEAD exists)
+if ! git rev-parse --verify MERGE_HEAD >/dev/null 2>&1; then
+  # Not a merge, exit normally
+  exit 0
+fi
+
+# Read file extensions from config.yml
+CONFIG_FILE=".doch/config.yml"
+if [ -f "$CONFIG_FILE" ]; then
+  # Extract fileExtensions from YAML and build regex pattern
+  EXTENSIONS=$(grep -A 10 "fileExtensions:" "$CONFIG_FILE" | grep "^  - " | sed 's/^  - "//g' | sed 's/"$//g' | tr '\n' '|' | sed 's/|$//')
+  if [ -n "$EXTENSIONS" ]; then
+    PATTERN="\\\\.(\${EXTENSIONS}|md)$"
+  else
+    # Fallback to defaults if no extensions found
+    PATTERN="\\\\.(ts|js|tsx|md)$"
+  fi
+else
+  # Fallback to defaults if no config file
+  PATTERN="\\\\.(ts|js|tsx|md)$"
+fi
+
+# Get markdown files that would be affected by the merge
+CHANGED_MD=$(git diff --name-only HEAD MERGE_HEAD | grep -E "\${PATTERN}")
+if [ -n "$CHANGED_MD" ]; then
+  echo "$CHANGED_MD" | xargs npx doch check
+  if [ $? -ne 0 ]; then
+    echo ""
+    # Just warning
+    echo "🚧 Warning: Documentation is stale or missing in merge!"
+    read -p "Continue merge anyway? [y/N] " yn < /dev/tty
+    if [ "$yn" = "y" ] || [ "$yn" = "Y" ]; then
+      echo "Proceeding with merge…"
+    else
+      echo "Merge aborted. Please fix documentation issues first."
+      exit 1
+    fi
+  fi
+fi
+
+exit 0
+`;
+
+// Update drift after merging (similar logic to post-commit)
+const HOOK_POST_MERGE = `#!/usr/bin/env sh
+echo "DocHelper: Updating documentation status after merge…"
+
+# Read file extensions from config.yml
+CONFIG_FILE=".doch/config.yml"
+if [ -f "$CONFIG_FILE" ]; then
+  # Extract fileExtensions from YAML and build regex pattern
+  EXTENSIONS=$(grep -A 10 "fileExtensions:" "$CONFIG_FILE" | grep "^  - " | sed 's/^  - "//g' | sed 's/"$//g' | tr '\n' '|' | sed 's/|$//')
+  if [ -n "$EXTENSIONS" ]; then
+    PATTERN="\\\\.(\${EXTENSIONS}|md)$"
+  else
+    # Fallback to defaults if no extensions found
+    PATTERN="\\\\.(ts|js|tsx|md)$"
+  fi
+else
+  # Fallback to defaults if no config file
+  PATTERN="\\\\.(ts|js|tsx|md)$"
+fi
+
+# Check if ORIG_HEAD exists (indicates a merge just happened)
+if git rev-parse --verify ORIG_HEAD >/dev/null 2>&1; then
+  # Get files that were changed in the merge
+  CHANGED_SRC=$(git diff-tree --no-commit-id --name-only -r ORIG_HEAD HEAD | grep -E "\${PATTERN}")
+else
+  # Fallback: compare with previous commit
+  if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+    CHANGED_SRC=$(git diff-tree --no-commit-id --name-only -r HEAD~1 HEAD | grep -E "\${PATTERN}")
+  else
+    # First commit - get all files
+    CHANGED_SRC=$(git diff-tree --no-commit-id --name-only -r --root HEAD | grep -E "\${PATTERN}")
+  fi
+fi
+
+if [ -n "$CHANGED_SRC" ]; then
+  echo "$CHANGED_SRC" | xargs npx doch drift
+fi
+`;
 
 // ABOUT DOCH REPO
 export async function initDochRepo(folder: vscode.WorkspaceFolder) {
@@ -99,31 +226,32 @@ export async function initDochRepo(folder: vscode.WorkspaceFolder) {
     await vscode.workspace.fs.createDirectory(base);
   }
 
-  // Ensure .gitignore exists and includes .doch/ and .dochignore
-  const gitignoreUri = vscode.Uri.joinPath(folder.uri, '.gitignore');
-  let gitContent = '';
-  try {
-    const buf = await vscode.workspace.fs.readFile(gitignoreUri);
-    gitContent = Buffer.from(buf).toString('utf8');
-  } catch {
-    // no .gitignore → create one with header
-    const header = '# .gitignore (generated by DocHelper)\n\n';
-    await vscode.workspace.fs.writeFile(
-      gitignoreUri,
-      Buffer.from(header, 'utf8')
-    );
-    gitContent = header;
-  }
-  const lines = gitContent.split(/\r?\n/);
-  const toAdd = ['.doch/', '.dochignore'].filter(p => !lines.includes(p));
-  if (toAdd.length) {
-    const suffix = gitContent.endsWith('\n') ? '' : '\n';
-    const newContent = gitContent + suffix + toAdd.join('\n') + '\n';
-    await vscode.workspace.fs.writeFile(
-      gitignoreUri,
-      Buffer.from(newContent, 'utf8')
-    );
-  }
+  // Should not gitignore so every branch has their own doc status
+  // // Ensure .gitignore exists and includes .doch/ and .dochignore
+  // const gitignoreUri = vscode.Uri.joinPath(folder.uri, '.gitignore');
+  // let gitContent = '';
+  // try {
+  //   const buf = await vscode.workspace.fs.readFile(gitignoreUri);
+  //   gitContent = Buffer.from(buf).toString('utf8');
+  // } catch {
+  //   // no .gitignore → create one with header
+  //   const header = '# .gitignore (generated by DocHelper)\n\n';
+  //   await vscode.workspace.fs.writeFile(
+  //     gitignoreUri,
+  //     Buffer.from(header, 'utf8')
+  //   );
+  //   gitContent = header;
+  // }
+  // const lines = gitContent.split(/\r?\n/);
+  // const toAdd = ['.doch/', '.dochignore'].filter(p => !lines.includes(p));
+  // if (toAdd.length) {
+  //   const suffix = gitContent.endsWith('\n') ? '' : '\n';
+  //   const newContent = gitContent + suffix + toAdd.join('\n') + '\n';
+  //   await vscode.workspace.fs.writeFile(
+  //     gitignoreUri,
+  //     Buffer.from(newContent, 'utf8')
+  //   );
+  // }
 
   // 1) Directories to create
   const dirs = [
@@ -140,6 +268,8 @@ export async function initDochRepo(folder: vscode.WorkspaceFolder) {
     ['config.yml', TEMPLATE_CONFIG],
     ['hooks/post-commit', HOOK_POST_COMMIT],
     ['hooks/pre-push', HOOK_PRE_PUSH],
+    ['hooks/pre-merge-commit', HOOK_PRE_MERGE_COMMIT],
+    ['hooks/post-merge', HOOK_POST_MERGE],
     ['metadata/doc-state.json', '{}'],
   ] as [string,string][]) {
     // create the file
@@ -151,7 +281,10 @@ export async function initDochRepo(folder: vscode.WorkspaceFolder) {
 
   const terminal = vscode.window.createTerminal('Doc Helper');
   terminal.show(true);
+  terminal.sendText('git init');
   terminal.sendText('git config core.hooksPath .doch/hooks');
+  // DEPLOYMENT NOTE:
+  // terminal.sendText('npm install -g doc-helper-0711');
 
   // Ensure the workspace .vscode folder and add markdown quickSuggestions
   const vscodeConfigDir = vscode.Uri.joinPath(folder.uri, '.vscode');

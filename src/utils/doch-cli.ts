@@ -281,7 +281,7 @@ export async function driftNode(files: string[], root: string) {
       } else {
         // Source is newer than doc - check commit message
         const commitMessage = await getLastCommitMessage(fullSrc, root);
-        const minorChangeKeywords = ['fix', 'bug', 'no-doc', 'nodoc', 'refactor', 'style', 'format'];
+        const minorChangeKeywords = ['fix', 'bug', 'refactor'];
         
         if (minorChangeKeywords.some(keyword => 
             commitMessage.toLowerCase().includes(keyword))) {
@@ -321,56 +321,74 @@ export async function checkNode(files: string[], root: string) {
   const docsDirectory = await getDocsDirectoryFromVSCode(root);
   const { extensions, regex, sourceDirectories } = await getWorkspaceConfig(root);
   
-  for (const docRel of files) {
-    // Check if it's a markdown file
-    if (!docRel.endsWith('.md')) {
-      console.log(`Skipping ${docRel}: not a markdown file`);
+  for (const rel of files) {
+    // Check ignore patterns
+    if (ignorePatterns.some(pattern => minimatch(rel, pattern))) {
       continue;
     }
 
-    // Try to find corresponding source file in any source directory
-    let foundSourceRel: string | undefined;
-    
-    for (const sourceDir of sourceDirectories) {
-      // Convert docs path back to source path for this directory
-      const base = docRel
-        .replace(new RegExp('^' + docsDirectory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${sourceDir}/`)
-        .replace(/\.md$/, '');
+    const isInSourceDir = sourceDirectories.some(dir => rel.startsWith(`${dir}/`));
+    if ((!isInSourceDir || !regex.test(rel)) && !rel.startsWith(docsDirectory)) {
+      continue;
+    }
 
-      for (const ext of extensions) {
-        const candidate = `${base}.${ext}`;
-        const fullSrc = path.join(root, candidate);
-        try {
-          await fs.stat(fullSrc);
-          foundSourceRel = candidate;
+    let srcRel: string | undefined;
+    let docRel: string | undefined;
+    
+    if (rel.startsWith(docsDirectory) && rel.endsWith('.md')) {
+      docRel = rel;
+      for (const sourceDir of sourceDirectories) {
+        // Convert docs path back to source path for this directory
+        const base = rel
+          .replace(new RegExp('^' + docsDirectory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${sourceDir}/`)
+          .replace(/\.md$/, '');
+
+        for (const ext of extensions) {
+          const candidate = `${base}.${ext}`;
+          const fullSrc = path.join(root, candidate);
+          try {
+            await fs.stat(fullSrc);
+            srcRel = candidate;
+            break;
+          } catch {
+            // not found, keep looking
+          }
+        }
+        if (srcRel) {
           break;
-        } catch {
-          // not found, keep looking
         }
       }
-      if (foundSourceRel) {
-        break;
+
+      if (!srcRel) {
+        console.log(`No corresponding source file found for ${docRel}`);
+        continue;
+      }
+
+      if (srcRel) {
+        const entry = state[srcRel];
+        if (!entry) {
+          console.log(`${srcRel}: no state entry`);
+          process.exit(1);
+        } else if (entry.status !== 'uptodate') {
+          console.log(`${srcRel}: status is '${entry.status}'`);
+          process.exit(1);
+        } else {
+          process.exit(0);
+        }
+      }
+    } else {
+      srcRel = rel;
+      const entry = state[srcRel];
+      if (!entry) {
+        console.log(`${srcRel}: no state entry`);
+        process.exit(1);
+      } else if (entry.status !== 'uptodate') {
+        console.log(`${srcRel}: status is '${entry.status}'`);
+        process.exit(1);
+      } else {
+        process.exit(0);
       }
     }
-
-    if (!foundSourceRel) {
-      console.log(`No corresponding source file found for ${docRel}`);
-      continue;
-    }
-
-    if (ignorePatterns.some(pat => minimatch(foundSourceRel!, pat))) {
-      continue;
-    }
-
-    const fullSrc = path.join(root, foundSourceRel);
-    let documented = true;
-    try {
-      await fs.stat(fullSrc);
-    } catch {
-      documented = false;
-    }
-    
-    state[foundSourceRel] = { documented, timestamp: new Date().toISOString() };
   }
   
   await saveDocState(root, state);

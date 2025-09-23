@@ -489,7 +489,6 @@ export async function activate(context: vscode.ExtensionContext) {
     }
   });
   context.subscriptions.push(statusBarMenuCmd);
-  statusBarItem.command = 'doc-helper-0711.statusBarMenu';
 
   // function to load json state from .doch/metadata/doc-state.json
   async function loadState(): Promise<Record<string, { documented: boolean; timestamp: string; status?: 'uptodate' | 'outdated' | 'nodocs' }>> {
@@ -638,8 +637,9 @@ export async function activate(context: vscode.ExtensionContext) {
       statusBarItem.text = text;
       // Build rich markdown tooltip with quick actions
       const cfg = vscode.workspace.getConfiguration('docHelper');
+      const ghostSuggestion = cfg.get<boolean>('enableGhostSuggestion');
       const currentStatusLabel = text.replace(/\$\([^)]+\)\s*/, '');
-      const md = new vscode.MarkdownString(
+      const md = ghostSuggestion ? new vscode.MarkdownString(
         `**Doc Helper**  \\
         Status: ${currentStatusLabel ?? '—'}  \\
         File: \`${rel}\`
@@ -647,11 +647,24 @@ export async function activate(context: vscode.ExtensionContext) {
         `$(refresh) [Refresh](command:doc-helper-0711.refreshFileStatus)  |  ` +
         `$(bell-slash) [Snooze Suggestion for 5m](command:doc-helper-0711.snoozeGhost5m)  |  ` +
         `$(settings-gear) [Settings](command:workbench.action.openSettings?%5B%22DocHelper%22%5D)`
+      ): new vscode.MarkdownString(
+        `**Doc Helper**  \\
+        Status: ${currentStatusLabel ?? '—'}  \\
+        File: \`${rel}\`
+        \n` +
+        `$(refresh) [Refresh](command:doc-helper-0711.refreshFileStatus)  |  ` +
+        `$(settings-gear) [Settings](command:workbench.action.openSettings?%5B%22DocHelper%22%5D)`
       );
       md.isTrusted = true;
       md.supportThemeIcons = true;
       statusBarItem.tooltip = md;
       statusBarItem.backgroundColor = bg;
+      // only attach the status‐bar menu command for Markdown files
+      if (editor.document.languageId === 'markdown') {
+        statusBarItem.command = 'doc-helper-0711.statusBarMenu';
+      } else {
+        statusBarItem.command = undefined;
+      }
       statusBarItem.show();
     } else {
       statusBarItem.hide();
@@ -663,7 +676,12 @@ export async function activate(context: vscode.ExtensionContext) {
   
   // listen for editor changes
   context.subscriptions.push(
-    vscode.window.onDidChangeActiveTextEditor(updateStatus)
+    vscode.window.onDidChangeActiveTextEditor(updateStatus),
+    vscode.workspace.onDidChangeConfiguration(e => {
+      if (e.affectsConfiguration('docHelper.hyperlinkUnderline') || e.affectsConfiguration('docHelper.enableGhostSuggestion')) {
+        updateStatus(vscode.window.activeTextEditor); 
+      }
+    })
   );
 
   // any time the JSON changes, re-run your status‐bar update

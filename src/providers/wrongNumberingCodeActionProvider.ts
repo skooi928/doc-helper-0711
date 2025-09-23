@@ -73,12 +73,22 @@ function analyzeNumberingSequence(headings: HeadingInfo[]): { missing: { number:
   for (const [level, levelHeadings] of sortedHeadingsByLevel) {
     const numberedHeadings = levelHeadings.filter(h => h.number !== null);
 
-    if (numberedHeadings.length < 2) {
-      continue; // Need at least 2 numbered headings to check sequence
+    if (numberedHeadings.length < 1) {
+      continue; // Need at least 1 numbered heading to check sequence
     }
 
     // Sort by line number to maintain document order
     numberedHeadings.sort((a, b) => a.line - b.line);
+
+    // Special case: if there's only 1 numbered heading, check if it's 1
+    if (numberedHeadings.length === 1) {
+      const singleHeading = numberedHeadings[0];
+      if (singleHeading.number !== 1) {
+        // Single heading should be numbered 1
+        issues.missing.push({ number: 1, level: level, line: singleHeading.line });
+      }
+      continue; // Done with this level
+    }
     
     // Check for duplicates
 

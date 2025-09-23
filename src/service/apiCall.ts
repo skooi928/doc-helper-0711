@@ -1,3 +1,5 @@
+import * as vscode from "vscode";
+
 export interface ChatResponse {
     response: string;
 }
@@ -27,6 +29,12 @@ export async function uploadDocuments(files: { name: string; content: string }[]
 }
 
 export async function askDocumentationQuestion(userId: number, question: string, files?:{name:string;content:string}[]): Promise<string> {
+    const apiKey = vscode.workspace.getConfiguration('docHelper').get<string>('geminiApiKey');
+
+    if (!apiKey) {
+        throw new Error('Gemini API key is not configured. Please set it in VS Code settings.');
+    }
+
     // If there is any file to upload, do it first
     if (files && files.length) {
         await uploadDocuments(files);
@@ -36,7 +44,8 @@ export async function askDocumentationQuestion(userId: number, question: string,
         const response = await fetch('http://localhost:8080/api/qnachat', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'API-Key': apiKey 
             },
             body: JSON.stringify({ userId, question })
         });

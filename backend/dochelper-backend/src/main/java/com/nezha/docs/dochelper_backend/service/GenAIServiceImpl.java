@@ -5,14 +5,27 @@ import org.springframework.stereotype.Service;
 
 import com.nezha.docs.dochelper_backend.controller.dto.ChatRequest;
 
+import dev.langchain4j.memory.chat.MessageWindowChatMemory;
+import dev.langchain4j.rag.RetrievalAugmentor;
+import dev.langchain4j.service.AiServices;
+
 @Service
 @RequiredArgsConstructor
 public class GenAIServiceImpl implements GenAIService {
 
-  private final RAGAssistant assistant;
+  private final ChatModelFactory chatModelFactory;
+  private final RetrievalAugmentor retrievalAugmentor;
 
   @Override
-  public String getResponse(ChatRequest request) {
+  public String getResponse(ChatRequest request, String apiKey) {
+    var chatModel = chatModelFactory.createChatModel(apiKey);
+
+    RAGAssistant assistant = AiServices.builder(RAGAssistant.class)
+        .chatModel(chatModel)
+        .retrievalAugmentor(retrievalAugmentor)
+        .chatMemoryProvider(memoryId -> MessageWindowChatMemory.withMaxMessages(10))
+        .build();
+
     return assistant.chat(request.userId(), request.question());
   }
 

@@ -23,7 +23,7 @@ export async function generateDocumentation(sourceUri: vscode.Uri, replace: bool
       // Determine language from file extension
       const language = path.extname(sourceUri.fsPath).toLowerCase();
 
-      progress.report({ message: "Generating documentation for '" + sourceUri.fsPath + "' with AI..." });
+      progress.report({ message: "Generating documentation for '" + vscode.workspace.asRelativePath(sourceUri, false) + "' with AI..." });
 
       // Determine the documentation file path
       const folders = vscode.workspace.workspaceFolders;
@@ -117,7 +117,7 @@ export async function summarizeDocumentation(docUri: vscode.Uri) {
       const docContent = await vscode.workspace.fs.readFile(docUri);
       const content = Buffer.from(docContent).toString('utf8');
 
-      progress.report({ message: "Generating summary for '" + docUri.fsPath + "' with AI..." });
+      progress.report({ message: "Generating summary for '" + vscode.workspace.asRelativePath(docUri, false) + "' with AI..." });
 
       // Generate summary using AI
       const summary = await aiService.summarizeDocumentation(content);
@@ -265,5 +265,3 @@ export function registerInlineSuggestionProvider(context: vscode.ExtensionContex
   context.subscriptions.push(disposable);
   return disposable;
 }
-
-// Todo: detect missing function instantly

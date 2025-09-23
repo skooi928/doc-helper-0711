@@ -17,12 +17,10 @@ import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
 import dev.langchain4j.service.AiServices;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore;
-import io.github.cdimascio.dotenv.Dotenv;
 
 import com.nezha.docs.dochelper_backend.service.RAGAssistant;
 
 import dev.langchain4j.data.segment.TextSegment;
-import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 
 @Configuration
 public class AIConfig {
@@ -66,7 +64,7 @@ public class AIConfig {
   }
 
   @Bean
-  public RAGAssistant ragAssistant() {
+  public RetrievalAugmentor retrievalAugmentor() {
     var contentRetriever = EmbeddingStoreContentRetriever.builder()
         .embeddingModel(embeddingModel())
         .embeddingStore(embeddingStore())
@@ -78,31 +76,9 @@ public class AIConfig {
         .metadataKeysToInclude(List.of("fileName", "index"))
         .build();
 
-    RetrievalAugmentor retrievalAugmentor = DefaultRetrievalAugmentor.builder()
+    return DefaultRetrievalAugmentor.builder()
         .contentRetriever(contentRetriever)
         .contentInjector(contentInjector)
-        .build();
-
-    return AiServices.builder(RAGAssistant.class)
-        .chatModel(chatLanguageModel())
-        .retrievalAugmentor(retrievalAugmentor)
-        .chatMemoryProvider(memoryId -> MessageWindowChatMemory.withMaxMessages(10))
-        .build();
-  }
-
-  @Bean
-  public ChatModel chatLanguageModel() {
-    // Load gemini api from .env
-    Dotenv dotenv = Dotenv.load();
-    String apiKey = dotenv.get("GEMINI_AI_KEY");
-    if (apiKey == null) {
-      throw new IllegalStateException("API key not set");
-    }
-
-    return GoogleAiGeminiChatModel.builder()
-        .apiKey(apiKey)
-        .modelName("gemini-2.5-flash")
-        .temperature(0.2)
         .build();
   }
 }

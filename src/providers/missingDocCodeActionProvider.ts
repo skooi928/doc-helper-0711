@@ -127,8 +127,17 @@ function getInsertionPositionForMissingSymbol(
    const matchedSymbols = mdSymbols.filter(mdSym => {
      return sourceSymbols.some(sourceSym => (mdSym.name.trim().toLowerCase()).includes(sourceSym.name.trim().toLowerCase()));
    });
-   const lastMdSymbol = matchedSymbols.length > 0 ? matchedSymbols[matchedSymbols.length - 1] : null;
-   return lastMdSymbol ? lastMdSymbol.range.end : new vscode.Position(doc.lineCount, 0);
+
+  if (matchedSymbols.length > 0) {
+    const lastMdSymbol = matchedSymbols[matchedSymbols.length - 1];
+    return lastMdSymbol.range.end;
+  }
+  
+  // When no documented functions exist, insert at the end of the document
+  // but ensure the position is valid
+  const lastValidLine = Math.max(0, doc.lineCount - 1);
+  const lastLine = doc.lineAt(lastValidLine);
+  return new vscode.Position(lastValidLine, lastLine.text.length);
 }
 
 // Call this function to update diagnostics from the missing symbols
@@ -143,7 +152,20 @@ function updateDiagnostics(
   const diagnostics: vscode.Diagnostic[] = toReport.map(sym => {
     // Get the diagnostic position using our helper function; use a zero-length range at that position.
     const pos = getInsertionPositionForMissingSymbol(sym, orderedSourceSymbols, mdSymbols, doc);
-    const lineRange = doc.lineAt(pos).range;
+    // Ensure the position is within document bounds
+    const safePos = new vscode.Position(
+      Math.min(pos.line, doc.lineCount - 1),
+      pos.character
+    );
+    
+    let lineRange: vscode.Range;
+    try {
+      lineRange = doc.lineAt(safePos.line).range;
+    } catch (error) {
+      // Fallback to the last line if there's still an issue
+      const lastLine = Math.max(0, doc.lineCount - 1);
+      lineRange = doc.lineAt(lastLine).range;
+    }
     const message = `Missing documentation for function '${sym.name}'`;
     // Create a diagnostic at the determined position.
     const d = new vscode.Diagnostic(
@@ -369,6 +391,7 @@ vscode.commands.registerCommand(
     // Compute the insertion position in the markdown file using the helper
     const insertPos = getInsertionPositionForMissingSymbol(missingSymbol, userDefinedSymbols, mdSymbols, document);
 
+
     // Determine header number based on the function's order in the source
     const missingIndex = userDefinedSymbols.findIndex(sym =>
       sym.name.trim().toLowerCase() === funcName.trim().toLowerCase()
@@ -377,7 +400,7 @@ vscode.commands.registerCommand(
 
     // Build the documentation snippet
     const snippetText =
-      `### ${headerNumber}. \`${funcName}()\`\n` +
+      `\n### ${headerNumber}. \`${funcName}()\`\n` +
       `- **Parameters**: \n` +
       `- **Return Value**: \n` +
       `- **Usage Example**:\n` +
@@ -455,7 +478,7 @@ vscode.commands.registerCommand(
       const headerNumber = missingIndex >= 0 ? missingIndex + 1 : 1;
 
       const snippetText =
-        `### ${headerNumber}. \`${symbolName}()\`\n` +
+        `\n### ${headerNumber}. \`${symbolName}()\`\n` +
         `- **Parameters**: \n` +
         `- **Return Value**: \n` +
         `- **Usage Example**:\n` +
