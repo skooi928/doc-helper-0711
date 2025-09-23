@@ -31,8 +31,10 @@ build/
 
 ### VS Code ###
 .vscode/
-
 .env
 
 # A file for testing rag implementation
 README.md
+
+# Dockerfile
+Dockerfile

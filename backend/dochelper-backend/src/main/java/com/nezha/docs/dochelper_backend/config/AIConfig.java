@@ -17,6 +17,7 @@ import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
 import dev.langchain4j.service.AiServices;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore;
+import io.github.cdimascio.dotenv.Dotenv;
 
 import com.nezha.docs.dochelper_backend.service.RAGAssistant;
 
@@ -37,21 +38,28 @@ public class AIConfig {
   /* Embedding files */
   @Bean
   public EmbeddingModel embeddingModel() {
-    // // Load huggingface api from .env
-    // Dotenv dotenv = Dotenv.load();
-    // String huggingToken = dotenv.get("HUGGINGFACE_TOKEN");
-    // if (huggingToken == null) {
-    //   throw new IllegalStateException("API key not set");
-    // }
-    // return HuggingFaceEmbeddingModel.builder()
-    //     .accessToken(huggingToken)
-    //     .modelId("intfloat/multilingual-e5-base")
-    //     .build();
-    return OpenAiEmbeddingModel.builder()
-        .baseUrl("http://localhost:8081")
-        .apiKey("not-needed")
-        .modelName("intfloat/multilingual-e5-base")
+    String huggingToken = System.getenv("HUGGINGFACE_TOKEN");
+    if (huggingToken == null) {
+      try {
+        // Load huggingface api from .env
+        Dotenv dotenv = Dotenv.load();
+        huggingToken = dotenv.get("HUGGINGFACE_TOKEN");
+      } catch (Exception e) {
+        throw new IllegalStateException("Failed to load Hugging Face API token", e);
+      }
+    }
+    if (huggingToken == null || huggingToken.isEmpty()) {
+      throw new IllegalStateException("Hugging Face API token is not set.");
+    }
+    return HuggingFaceEmbeddingModel.builder()
+        .accessToken(huggingToken)
+        .modelId("intfloat/multilingual-e5-base")
         .build();
+    // return OpenAiEmbeddingModel.builder()
+    //     .baseUrl("http://localhost:8081")
+    //     .apiKey("not-needed")
+    //     .modelName("intfloat/multilingual-e5-base")
+    //     .build();
   }
 
   /* Store the embedded file */

@@ -25,7 +25,7 @@ export async function uploadDocuments(files: { name: string; content: string }[]
     }
     form.append('files', new Blob([f.content], { type: mimeType }), f.name);
   }
-  await fetch('http://localhost:8080/api/documents/upload', { method: 'POST', body: form });
+  await fetch('https://doc-helper.onrender.com/api/documents/upload', { method: 'POST', body: form });
 }
 
 export async function askDocumentationQuestion(userId: number, question: string, files?:{name:string;content:string}[]): Promise<string> {
@@ -41,7 +41,7 @@ export async function askDocumentationQuestion(userId: number, question: string,
     }
 
     try {
-        const response = await fetch('http://localhost:8080/api/qnachat', {
+        const response = await fetch('https://doc-helper.onrender.com/api/qnachat', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
