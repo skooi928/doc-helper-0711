@@ -19,10 +19,10 @@ import lombok.AllArgsConstructor;
 @AllArgsConstructor
 public class EmbeddingComponent {
 
-  private final EmbeddingModel embeddingModel;
   private final EmbeddingStore<TextSegment> embeddingStore;
+  private final EmbeddingModelFactory embeddingModelFactory;
 
-  public void loadDocuments(MultipartFile file) throws IOException {
+  public void loadDocuments(MultipartFile file, String huggingFaceToken) throws IOException {
     // Implementation for loading and embedding documents
     /* Current implementation use and only load one document */
     // String currentDir = System.getProperty("user.dir");
@@ -41,6 +41,8 @@ public class EmbeddingComponent {
     Metadata metadata = new Metadata();
     metadata.put("fileName", file.getOriginalFilename());
     Document doc = Document.from(text, metadata);
+
+    var embeddingModel = embeddingModelFactory.createEmbeddingModel(huggingFaceToken);
 
     EmbeddingStoreIngestor embeddingStoreIngestor = EmbeddingStoreIngestor.builder()
         .documentSplitter(DocumentSplitters.recursive(800, 200))

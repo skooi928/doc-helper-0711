@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import java.io.IOException;
 
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 
 
 @RestController
@@ -21,10 +22,10 @@ public class DocumentUploadController {
   private final EmbeddingComponent embeddingComponent;
   
   @PostMapping("/upload")
-  public void uploadDocuments(@RequestParam("files") MultipartFile[] files) throws IOException {
+  public void uploadDocuments(@RequestParam("files") MultipartFile[] files, @RequestHeader("HF-Token") String huggingFaceToken) throws IOException {
       for (MultipartFile file : files) {
           // delegate to a new ingest method that takes the byte content
-          embeddingComponent.loadDocuments(file);
+          embeddingComponent.loadDocuments(file, huggingFaceToken);
       }
       
   }

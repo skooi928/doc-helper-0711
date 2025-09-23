@@ -6,6 +6,12 @@ export interface ChatResponse {
 
 export async function uploadDocuments(files: { name: string; content: string }[]) {
   const form = new FormData();
+  const huggingFaceToken = vscode.workspace.getConfiguration('docHelper').get<string>('huggingFaceToken');
+
+  if (!huggingFaceToken) {
+      throw new Error('Hugging Face API token is not configured. Please set it in VS Code settings.');
+  }
+  
   for (const f of files) {
     // determine MIME type based on file extension
     const ext = f.name.split('.').pop()?.toLowerCase();
@@ -25,14 +31,19 @@ export async function uploadDocuments(files: { name: string; content: string }[]
     }
     form.append('files', new Blob([f.content], { type: mimeType }), f.name);
   }
-  await fetch('https://doc-helper.onrender.com/api/documents/upload', { method: 'POST', body: form });
+  await fetch('https://doc-helper.onrender.com/api/documents/upload', { method: 'POST', headers: { 'HF-Token': huggingFaceToken }, body: form });
 }
 
 export async function askDocumentationQuestion(userId: number, question: string, files?:{name:string;content:string}[]): Promise<string> {
     const apiKey = vscode.workspace.getConfiguration('docHelper').get<string>('geminiApiKey');
+    const huggingFaceToken = vscode.workspace.getConfiguration('docHelper').get<string>('huggingFaceToken');
 
     if (!apiKey) {
         throw new Error('Gemini API key is not configured. Please set it in VS Code settings.');
+    }
+
+    if (!huggingFaceToken) {
+        throw new Error('Hugging Face API token is not configured. Please set it in VS Code settings.');
     }
 
     // If there is any file to upload, do it first
@@ -45,7 +56,8 @@ export async function askDocumentationQuestion(userId: number, question: string,
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'API-Key': apiKey 
+                'API-Key': apiKey,
+                'HF-Token': huggingFaceToken
             },
             body: JSON.stringify({ userId, question })
         });

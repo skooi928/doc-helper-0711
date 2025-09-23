@@ -356,6 +356,11 @@
           "default": "",
           "description": "Key in your own Gemini API Key to access QnA chatbot service"
         },
+        "docHelper.huggingFaceToken": {
+          "type": "string",
+          "default": "",
+          "description": "Key in your own Hugging Face API Token to access document processing service"
+        },
         "docHelper.saveDirectory": {
           "type": "string",
           "default": "docs/",

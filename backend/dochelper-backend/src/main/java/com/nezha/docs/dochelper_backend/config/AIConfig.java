@@ -35,32 +35,32 @@ public class AIConfig {
   //       .build();
   // }
 
-  /* Embedding files */
-  @Bean
-  public EmbeddingModel embeddingModel() {
-    String huggingToken = System.getenv("HUGGINGFACE_TOKEN");
-    if (huggingToken == null) {
-      try {
-        // Load huggingface api from .env
-        Dotenv dotenv = Dotenv.load();
-        huggingToken = dotenv.get("HUGGINGFACE_TOKEN");
-      } catch (Exception e) {
-        throw new IllegalStateException("Failed to load Hugging Face API token", e);
-      }
-    }
-    if (huggingToken == null || huggingToken.isEmpty()) {
-      throw new IllegalStateException("Hugging Face API token is not set.");
-    }
-    return HuggingFaceEmbeddingModel.builder()
-        .accessToken(huggingToken)
-        .modelId("intfloat/multilingual-e5-base")
-        .build();
-    // return OpenAiEmbeddingModel.builder()
-    //     .baseUrl("http://localhost:8081")
-    //     .apiKey("not-needed")
-    //     .modelName("intfloat/multilingual-e5-base")
-    //     .build();
-  }
+  // /* Embedding files */
+  // @Bean
+  // public EmbeddingModel embeddingModel() {
+  //   String huggingToken = System.getenv("HUGGINGFACE_TOKEN");
+  //   if (huggingToken == null) {
+  //     try {
+  //       // Load huggingface api from .env
+  //       Dotenv dotenv = Dotenv.load();
+  //       huggingToken = dotenv.get("HUGGINGFACE_TOKEN");
+  //     } catch (Exception e) {
+  //       throw new IllegalStateException("Failed to load Hugging Face API token", e);
+  //     }
+  //   }
+  //   if (huggingToken == null || huggingToken.isEmpty()) {
+  //     throw new IllegalStateException("Hugging Face API token is not set.");
+  //   }
+  //   return HuggingFaceEmbeddingModel.builder()
+  //       .accessToken(huggingToken)
+  //       .modelId("intfloat/multilingual-e5-base")
+  //       .build();
+  //   // return OpenAiEmbeddingModel.builder()
+  //   //     .baseUrl("http://localhost:8081")
+  //   //     .apiKey("not-needed")
+  //   //     .modelName("intfloat/multilingual-e5-base")
+  //   //     .build();
+  // }
 
   /* Store the embedded file */
   @Bean
@@ -71,22 +71,22 @@ public class AIConfig {
     return new InMemoryEmbeddingStore<>();
   }
 
-  @Bean
-  public RetrievalAugmentor retrievalAugmentor() {
-    var contentRetriever = EmbeddingStoreContentRetriever.builder()
-        .embeddingModel(embeddingModel())
-        .embeddingStore(embeddingStore())
-        .maxResults(10)
-        .minScore(0.6)
-        .build();
+  // @Bean
+  // public RetrievalAugmentor retrievalAugmentor() {
+  //   var contentRetriever = EmbeddingStoreContentRetriever.builder()
+  //       .embeddingModel(embeddingModel())
+  //       .embeddingStore(embeddingStore())
+  //       .maxResults(10)
+  //       .minScore(0.6)
+  //       .build();
     
-    var contentInjector = DefaultContentInjector.builder()
-        .metadataKeysToInclude(List.of("fileName", "index"))
-        .build();
+  //   var contentInjector = DefaultContentInjector.builder()
+  //       .metadataKeysToInclude(List.of("fileName", "index"))
+  //       .build();
 
-    return DefaultRetrievalAugmentor.builder()
-        .contentRetriever(contentRetriever)
-        .contentInjector(contentInjector)
-        .build();
-  }
+  //   return DefaultRetrievalAugmentor.builder()
+  //       .contentRetriever(contentRetriever)
+  //       .contentInjector(contentInjector)
+  //       .build();
+  // }
 }

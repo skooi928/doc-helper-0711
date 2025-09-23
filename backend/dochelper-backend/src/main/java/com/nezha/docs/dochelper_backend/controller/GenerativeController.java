@@ -25,8 +25,8 @@ public class GenerativeController {
     consumes = MediaType.APPLICATION_JSON_VALUE,
     produces = MediaType.APPLICATION_JSON_VALUE
   )
-  public ChatResponse getChatResponse(@RequestBody ChatRequest request, @RequestHeader("API-Key") String apiKey) {
-    return new ChatResponse(genAIService.getResponse(request, apiKey));
+  public ChatResponse getChatResponse(@RequestBody ChatRequest request, @RequestHeader("API-Key") String apiKey, @RequestHeader("HF-Token") String huggingFaceToken) {
+    return new ChatResponse(genAIService.getResponse(request, apiKey, huggingFaceToken));
   }
   
 }
