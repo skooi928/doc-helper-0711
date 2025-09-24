@@ -81,11 +81,11 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 
     private _getHtmlForWebview(webview: vscode.Webview) {
         // Get the local path to main script run in the webview, then convert it to a uri we can use in the webview.
-        const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'src', 'webview' , 'chatbot.js'));
+        const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'chatbot.js'));
 
         // Do the same for the stylesheet.
-        const styleMainUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'src', 'webview' , 'chatbot.css'));
-        const styleVscodeUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'src', 'webview' , 'vscode.css'));
+        const styleMainUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'chatbot.css'));
+        const styleVscodeUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'vscode.css'));
 
         // Use a nonce to only allow a specific script to be run.
         const nonce = getNonce();
