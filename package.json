@@ -191,6 +191,11 @@
         "icon": "$(search)"
       },
       {
+        "command": "doc-helper-0711.generateGeneralDocs",
+        "title": "Generate General Documentation",
+        "icon": "$(new-file)"
+      },
+      {
         "command": "doc-helper-0711.ignoreFile",
         "title": "Ignore File",
         "icon": "$(eye-closed)"
@@ -310,7 +315,12 @@
         {
           "command": "doc-helper-0711.searchFile",
           "when": "view == doc-helper-stats",
-          "group": "navigation"
+          "group": "navigation@1"
+        },
+        {
+          "command": "doc-helper-0711.generateGeneralDocs",
+          "when": "view == doc-helper-stats",
+          "group": "navigation@2"
         },
         {
           "command": "doc-helper-0711.addTask",

@@ -2,28 +2,7 @@ import * as vscode from 'vscode';
 import * as yaml from 'js-yaml';
 import { execSync } from 'child_process';
 
-// Ensure the CLI is installed globally
-export async function installCLIIfNeeded(extensionPath: string): Promise<void> {
-  try {
-    // Check if CLI is already installed
-    execSync('doch --help', { stdio: 'ignore' });
-  } catch (error) {
-    try {
-      // CLI not found, install it
-      console.log('Installing Doc Helper CLI globally...');
-      execSync(`npm link "${extensionPath}"`, { stdio: 'pipe' });
-      
-      vscode.window.showInformationMessage(
-        'Doc Helper CLI installed globally. You can now use "doch" command in terminal.'
-      );
-    } catch (installError) {
-      console.error('Failed to install CLI globally:', installError);
-      vscode.window.showWarningMessage(
-        `Doc Helper CLI could not be installed globally. You may need to run "npm link ${extensionPath}" manually or check your permissions.`
-      );
-    }
-  }
-}
+
 
 const TEMPLATE_CONFIG = `\
 # .doch/config.yml
@@ -52,34 +31,225 @@ dist/**
 const HOOK_POST_COMMIT = `#!/usr/bin/env sh
 echo "DocHelper: Updating doc status…"
 
-# Read file extensions from config.yml
-CONFIG_FILE=".doch/config.yml"
-if [ -f "$CONFIG_FILE" ]; then
-  # Extract fileExtensions from YAML and build regex pattern
-  EXTENSIONS=$(grep -A 10 "fileExtensions:" "$CONFIG_FILE" | grep "^  - " | sed 's/^  - "//g' | sed 's/"$//g' | tr '\n' '|' | sed 's/|$//')
-  if [ -n "$EXTENSIONS" ]; then
-    PATTERN="\\\\.(\${EXTENSIONS}|md)$"
-  else
-    # Fallback to defaults if no extensions found
-    PATTERN="\\\\.(ts|js|tsx|md)$"
+# Function to validate doch repo
+validate_doch_repo() {
+  if [ ! -d ".doch" ]; then
+    echo "DocHelper not initialized. Missing: .doch directory"
+    exit 1
   fi
-else
-  # Fallback to defaults if no config file
-  PATTERN="\\\\.(ts|js|tsx|md)$"
-fi
+  if [ ! -f ".doch/config.yml" ]; then
+    echo "DocHelper configuration missing. Expected config file at: .doch/config.yml"
+    exit 1
+  fi
+  if [ ! -d ".doch/metadata" ]; then
+    mkdir -p ".doch/metadata"
+  fi
+}
 
-# Check if this is the first commit (no parent)
+# Function to read config and get extensions/directories
+read_config() {
+  if [ -f ".doch/config.yml" ]; then
+    # Extract fileExtensions from YAML
+    EXTENSIONS=$(grep -A 10 "fileExtensions:" ".doch/config.yml" | grep "^  - " | sed 's/^  - "//g' | sed 's/"$//g' | tr '\\n' '|' | sed 's/|$//')
+    if [ -z "$EXTENSIONS" ]; then
+      EXTENSIONS="ts|js|tsx"
+    fi
+    
+    # Extract sourceDirectories from YAML
+    SOURCE_DIRS=$(grep -A 10 "sourceDirectories:" ".doch/config.yml" | grep "^  - " | sed 's/^  - "//g' | sed 's/"$//g' | sed 's|/$||g')
+    if [ -z "$SOURCE_DIRS" ]; then
+      SOURCE_DIRS="src lib app"
+    fi
+  else
+    EXTENSIONS="ts|js|tsx"
+    SOURCE_DIRS="src lib app"
+  fi
+}
+
+# Function to get docs directory from VS Code settings
+get_docs_directory() {
+  DOCS_DIR="docs/"
+  if [ -f ".vscode/settings.json" ]; then
+    # Try to extract docs directory from VS Code settings
+    SETTING_DOCS=$(grep -o '"doc-helper-0711.docsDirectory"[[:space:]]*:[[:space:]]*"[^"]*"' ".vscode/settings.json" | sed 's/.*"\\([^"]*\\)"$/\\1/' | head -1)
+    if [ -n "$SETTING_DOCS" ]; then
+      DOCS_DIR="$SETTING_DOCS"
+    fi
+  fi
+}
+
+# Function to load ignore patterns
+load_ignore_patterns() {
+  IGNORE_PATTERNS=""
+  if [ -f ".dochignore" ]; then
+    IGNORE_PATTERNS=$(grep -v "^#" ".dochignore" | grep -v "^$")
+  fi
+}
+
+# Function to check if file should be ignored
+should_ignore() {
+  local file="$1"
+  if [ -n "$IGNORE_PATTERNS" ]; then
+    echo "$IGNORE_PATTERNS" | while read -r pattern; do
+      if [ -n "$pattern" ] && echo "$file" | grep -q "$pattern"; then
+        return 0
+      fi
+    done
+  fi
+  return 1
+}
+
+# Function to get last commit message
+get_last_commit_message() {
+  local file="$1"
+  git log -n 1 --pretty=format:"%s" -- "$file" 2>/dev/null || echo ""
+}
+
+# Function to check if change is minor
+is_minor_change() {
+  local commit_msg="$1"
+  echo "$commit_msg" | grep -iq "\\(fix\\|bug\\|refactor\\)"
+}
+
+# Function to update doc state
+update_doc_state() {
+  local src_rel="$1"
+  local documented="$2"
+  local timestamp="$3"
+  local doc_time="$4"
+  local status="$5"
+  
+  local state_file=".doch/metadata/doc-state.json"
+  
+  # Create empty state file if it doesn't exist
+  if [ ! -f "$state_file" ]; then
+    echo "{}" > "$state_file"
+  fi
+  
+  # Use node to update JSON (if available) or create simple update
+  if command -v node >/dev/null 2>&1; then
+    node -e "
+      const fs = require('fs');
+      let state = {};
+      try { state = JSON.parse(fs.readFileSync('$state_file', 'utf8')); } catch(e) {}
+      state['$src_rel'] = {
+        documented: $documented,
+        timestamp: '$timestamp',
+        docTime: '$doc_time',
+        status: '$status'
+      };
+      fs.writeFileSync('$state_file', JSON.stringify(state, null, 2));
+    "
+  else
+    echo "Warning: Node.js not available, state update skipped"
+  fi
+}
+
+# Main logic
+validate_doch_repo
+read_config
+get_docs_directory
+load_ignore_patterns
+
+# Build regex pattern
+PATTERN="\\\\.($EXTENSIONS|md)$"
+
+# Get changed files
 if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
-  # Not the first commit - compare with previous commit
-  CHANGED_SRC=$(git diff-tree --no-commit-id --name-only -r HEAD | grep -E "\${PATTERN}")
+  # Not the first commit
+  CHANGED_FILES=$(git diff-tree --no-commit-id --name-only -r HEAD | grep -E "$PATTERN")
 else
-  # First commit - get all files in this commit
-  CHANGED_SRC=$(git diff-tree --no-commit-id --name-only -r --root HEAD | grep -E "\${PATTERN}")
+  # First commit
+  CHANGED_FILES=$(git diff-tree --no-commit-id --name-only -r --root HEAD | grep -E "$PATTERN")
 fi
 
-if [ -n "$CHANGED_SRC" ]; then
-  echo "$CHANGED_SRC" | xargs npx doch drift
-fi 
+if [ -z "$CHANGED_FILES" ]; then
+  echo "No relevant files changed"
+  exit 0
+fi
+
+echo "Processing changed files..."
+CURRENT_TIME=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
+
+echo "$CHANGED_FILES" | while read -r file; do
+  if [ -z "$file" ]; then continue; fi
+  
+  # Check if file should be ignored
+  if should_ignore "$file"; then
+    continue
+  fi
+  
+  # Check if file is in source directory or docs directory
+  in_source_dir=false
+  for src_dir in $SOURCE_DIRS; do
+    if echo "$file" | grep -q "^$src_dir/"; then
+      in_source_dir=true
+      break
+    fi
+  done
+  
+  if [ "$in_source_dir" = "false" ] && ! echo "$file" | grep -q "^$DOCS_DIR"; then
+    continue
+  fi
+  
+  src_rel=""
+  doc_rel=""
+  
+  # Determine source and doc file relationships
+  if echo "$file" | grep -q "^$DOCS_DIR.*\\.md$"; then
+    # This is a doc file, find corresponding source
+    doc_rel="$file"
+    base_name=$(echo "$file" | sed "s|^$DOCS_DIR||" | sed 's|\\.md$||')
+    
+    for src_dir in $SOURCE_DIRS; do
+      for ext in $(echo "$EXTENSIONS" | tr '|' ' '); do
+        candidate="$src_dir/$base_name.$ext"
+        if [ -f "$candidate" ]; then
+          src_rel="$candidate"
+          break 2
+        fi
+      done
+    done
+  else
+    # This is a source file, find corresponding doc
+    for src_dir in $SOURCE_DIRS; do
+      if echo "$file" | grep -q "^$src_dir/"; then
+        src_rel="$file"
+        base_name=$(echo "$file" | sed "s|^$src_dir/||" | sed 's|\\.[^.]*$||')
+        doc_rel="$DOCS_DIR$base_name.md"
+        break
+      fi
+    done
+  fi
+  
+  if [ -z "$src_rel" ] || [ -z "$doc_rel" ]; then
+    echo "Could not determine corresponding source/documentation path for $file, skipping."
+    continue
+  fi
+  
+  # Check if both files exist and update state
+  if [ -f "$doc_rel" ] && [ -f "$src_rel" ]; then
+    # Both files exist - check timestamps and commit message
+    commit_msg=$(get_last_commit_message "$src_rel")
+    
+    if is_minor_change "$commit_msg"; then
+      # Minor change - mark as up to date
+      update_doc_state "$src_rel" "true" "$CURRENT_TIME" "$CURRENT_TIME" "uptodate"
+    else
+      # Major change - check if doc is newer
+      if [ "$doc_rel" -nt "$src_rel" ]; then
+        update_doc_state "$src_rel" "true" "$CURRENT_TIME" "$CURRENT_TIME" "uptodate"
+      else
+        update_doc_state "$src_rel" "true" "$CURRENT_TIME" "$CURRENT_TIME" "outdated"
+      fi
+    fi
+  elif [ -f "$src_rel" ]; then
+    # Only source exists - no docs
+    update_doc_state "$src_rel" "false" "$CURRENT_TIME" "" "nodocs"
+  fi
+done
+
+echo "DocHelper: Updated documentation state"
 `;
 
 // Warn pushing to github if there are undocumented or stale .md files
@@ -87,52 +257,189 @@ fi
 const HOOK_PRE_PUSH = `#!/usr/bin/env sh
 echo "DocHelper: Checking documentation status before push…"
 
-# Check if pushing to main branch
-CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-PUSHING_TO_MAIN=false
+# Function to validate doch repo
+validate_doch_repo() {
+  if [ ! -d ".doch" ]; then
+    echo "DocHelper not initialized. Missing: .doch directory"
+    exit 1
+  fi
+  if [ ! -f ".doch/config.yml" ]; then
+    echo "DocHelper configuration missing. Expected config file at: .doch/config.yml"
+    exit 1
+  fi
+  if [ ! -d ".doch/metadata" ]; then
+    mkdir -p ".doch/metadata"
+  fi
+}
 
-# Check if any of the push destinations is main/master
+# Function to read config and get extensions/directories
+read_config() {
+  if [ -f ".doch/config.yml" ]; then
+    # Extract fileExtensions from YAML
+    EXTENSIONS=$(grep -A 10 "fileExtensions:" ".doch/config.yml" | grep "^  - " | sed 's/^  - "//g' | sed 's/"$//g' | tr '\\n' '|' | sed 's/|$//')
+    if [ -z "$EXTENSIONS" ]; then
+      EXTENSIONS="ts|js|tsx"
+    fi
+    
+    # Extract sourceDirectories from YAML
+    SOURCE_DIRS=$(grep -A 10 "sourceDirectories:" ".doch/config.yml" | grep "^  - " | sed 's/^  - "//g' | sed 's/"$//g' | sed 's|/$||g')
+    if [ -z "$SOURCE_DIRS" ]; then
+      SOURCE_DIRS="src lib app"
+    fi
+  else
+    EXTENSIONS="ts|js|tsx"
+    SOURCE_DIRS="src lib app"
+  fi
+}
+
+# Function to get docs directory from VS Code settings
+get_docs_directory() {
+  DOCS_DIR="docs/"
+  if [ -f ".vscode/settings.json" ]; then
+    # Try to extract docs directory from VS Code settings
+    SETTING_DOCS=$(grep -o '"doc-helper-0711.docsDirectory"[[:space:]]*:[[:space:]]*"[^"]*"' ".vscode/settings.json" | sed 's/.*"\\([^"]*\\)"$/\\1/' | head -1)
+    if [ -n "$SETTING_DOCS" ]; then
+      DOCS_DIR="$SETTING_DOCS"
+    fi
+  fi
+}
+
+# Function to load ignore patterns
+load_ignore_patterns() {
+  IGNORE_PATTERNS=""
+  if [ -f ".dochignore" ]; then
+    IGNORE_PATTERNS=$(grep -v "^#" ".dochignore" | grep -v "^$")
+  fi
+}
+
+# Function to check if file should be ignored
+should_ignore() {
+  local file="$1"
+  if [ -n "$IGNORE_PATTERNS" ]; then
+    while IFS= read -r pattern; do
+      if [ -n "$pattern" ] && echo "$file" | grep -q "$pattern"; then
+        return 0
+      fi
+    done <<< "$IGNORE_PATTERNS"
+  fi
+  return 1
+}
+
+# Function to get file status from state
+get_file_status() {
+  local src_rel="$1"
+  local state_file=".doch/metadata/doc-state.json"
+  
+  if [ ! -f "$state_file" ]; then
+    echo "nodocs"
+    return
+  fi
+  
+  if command -v node >/dev/null 2>&1; then
+    status=$(node -e "
+      const fs = require('fs');
+      try {
+        const state = JSON.parse(fs.readFileSync('$state_file', 'utf8'));
+        const entry = state['$src_rel'];
+        if (!entry) {
+          console.log('nodocs');
+        } else {
+          console.log(entry.status || 'unknown');
+        }
+      } catch (e) {
+        console.log('nodocs');
+      }
+    " 2>/dev/null)
+    echo "$status"
+  else
+    echo "unknown"
+  fi
+}
+
+# Function to check documentation status
+check_documentation() {
+  validate_doch_repo
+  read_config
+  get_docs_directory
+  load_ignore_patterns
+  
+  # Find all source files and check their status
+  for src_dir in $SOURCE_DIRS; do
+    if [ -d "$src_dir" ]; then
+      # Use a for loop with glob to avoid subshell issues
+      find "$src_dir" -type f -name "*.ts" -o -name "*.js" -o -name "*.tsx" | while IFS= read -r src_file; do
+        if [ -z "$src_file" ]; then continue; fi
+
+        if should_ignore "$src_file"; then
+          continue
+        fi
+        
+        status=$(get_file_status "$src_file")
+        
+        case "$status" in
+          "nodocs")
+            echo "❌ Missing documentation: $src_file"
+            exit 1  # Exit immediately when issue found
+            ;;
+          "outdated")
+            echo "⚠️  Outdated documentation: $src_file"
+            exit 1  # Exit immediately when issue found
+            ;;
+          "uptodate")
+            # OK, continue checking other files
+            ;;
+          *)
+            # Unknown status, treat as issue
+            echo "❓ Unknown status for: $src_file (status: $status)"
+            exit 1  # Exit immediately when issue found
+            ;;
+        esac
+      done
+      
+      # Check if the subshell exited with error
+      if [ $? -ne 0 ]; then
+        return 1
+      fi
+    fi
+  done
+  
+  echo "✅ All files have up-to-date documentation"
+  return 0
+}
+
+# Check if pushing to main branch (regardless of current local branch)
+PUSHING_TO_MAIN=false
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+
 while read local_ref local_sha remote_ref remote_sha; do
+  # Check if the remote reference is main or master
   if [ "$remote_ref" = "refs/heads/main" ] || [ "$remote_ref" = "refs/heads/master" ]; then
     PUSHING_TO_MAIN=true
+    REMOTE_BRANCH=$(echo "$remote_ref" | sed 's|refs/heads/||')
+    echo "Detected push from branch '$CURRENT_BRANCH' to remote branch '$REMOTE_BRANCH'"
     break
   fi
 done
 
-# Read file extensions from config.yml
-CONFIG_FILE=".doch/config.yml"
-if [ -f "$CONFIG_FILE" ]; then
-  # Extract fileExtensions from YAML and build regex pattern
-  EXTENSIONS=$(grep -A 10 "fileExtensions:" "$CONFIG_FILE" | grep "^  - " | sed 's/^  - "//g' | sed 's/"$//g' | tr '\n' '|' | sed 's/|$//')
-  if [ -n "$EXTENSIONS" ]; then
-    PATTERN="\\\\.(\${EXTENSIONS}|md)$"
-  else
-    # Fallback to defaults if no extensions found
-    PATTERN="\\\\.(ts|js|tsx|md)$"
+if [ "$PUSHING_TO_MAIN" = true ]; then
+  echo "Pushing to main/master branch, checking documentation status…"
+  if ! check_documentation; then
+    echo ""
+    echo "❌ Push to main/master BLOCKED due to documentation issues."
+    echo "Please update documentation for the files listed above before pushing."
+    echo ""
+    exit 1
   fi
 else
-  # Fallback to defaults if no config file
-  PATTERN="\\\\.(ts|js|tsx|md)$"
-fi
-
-CHANGED_MD=$(git diff --name-only origin/main...HEAD | grep -E "\${PATTERN}")
-if [ -n "$CHANGED_MD" ]; then
-  echo "$CHANGED_MD" | xargs npx doch check
-  if [ $? -ne 0 ]; then
+  if ! check_documentation; then
     echo ""
-    # If pushing directly to main, block it
-    if [ "$PUSHING_TO_MAIN" = true ] || ([ "$CURRENT_BRANCH" = "main" ] || [ "$CURRENT_BRANCH" = "master" ]); then
-      echo "Warning: Direct push to main branch with stale documentation is not allowed!"
-      exit 1
+    echo "🚧 Warning: Documentation issues detected."
+    read -p "Continue push anyway? [y/N] " yn < /dev/tty
+    if [ "$yn" = "y" ] || [ "$yn" = "Y" ]; then
+      echo "Proceeding with push…"
     else
-      echo "🚧 Warning: Documentation is stale or missing!"
-      read -p "Continue push anyway? [Y/N] " yn < /dev/tty
-      if [ "$yn" = "y" ] || [ "$yn" = "Y" ]; then
-        echo "Proceeding with push…"
-      else
-        echo "Push aborted. Please fix documentation issues first."
-        exit 1
-      fi
+      echo "Push aborted. Please review documentation for the files listed above."
+      exit 1
     fi
   fi
 fi
@@ -150,37 +457,166 @@ if ! git rev-parse --verify MERGE_HEAD >/dev/null 2>&1; then
   exit 0
 fi
 
-# Read file extensions from config.yml
-CONFIG_FILE=".doch/config.yml"
-if [ -f "$CONFIG_FILE" ]; then
-  # Extract fileExtensions from YAML and build regex pattern
-  EXTENSIONS=$(grep -A 10 "fileExtensions:" "$CONFIG_FILE" | grep "^  - " | sed 's/^  - "//g' | sed 's/"$//g' | tr '\n' '|' | sed 's/|$//')
-  if [ -n "$EXTENSIONS" ]; then
-    PATTERN="\\\\.(\${EXTENSIONS}|md)$"
-  else
-    # Fallback to defaults if no extensions found
-    PATTERN="\\\\.(ts|js|tsx|md)$"
+# Function to validate doch repo
+validate_doch_repo() {
+  if [ ! -d ".doch" ]; then
+    echo "DocHelper not initialized. Missing: .doch directory"
+    exit 1
   fi
-else
-  # Fallback to defaults if no config file
-  PATTERN="\\\\.(ts|js|tsx|md)$"
-fi
+  if [ ! -f ".doch/config.yml" ]; then
+    echo "DocHelper configuration missing. Expected config file at: .doch/config.yml"
+    exit 1
+  fi
+  if [ ! -d ".doch/metadata" ]; then
+    mkdir -p ".doch/metadata"
+  fi
+}
 
-# Get markdown files that would be affected by the merge
-CHANGED_MD=$(git diff --name-only HEAD MERGE_HEAD | grep -E "\${PATTERN}")
-if [ -n "$CHANGED_MD" ]; then
-  echo "$CHANGED_MD" | xargs npx doch check
-  if [ $? -ne 0 ]; then
-    echo ""
-    # Just warning
-    echo "🚧 Warning: Documentation is stale or missing in merge!"
-    read -p "Continue merge anyway? [y/N] " yn < /dev/tty
-    if [ "$yn" = "y" ] || [ "$yn" = "Y" ]; then
-      echo "Proceeding with merge…"
-    else
-      echo "Merge aborted. Please fix documentation issues first."
-      exit 1
+# Function to read config and get extensions/directories
+read_config() {
+  if [ -f ".doch/config.yml" ]; then
+    # Extract fileExtensions from YAML
+    EXTENSIONS=$(grep -A 10 "fileExtensions:" ".doch/config.yml" | grep "^  - " | sed 's/^  - "//g' | sed 's/"$//g' | tr '\\n' '|' | sed 's/|$//')
+    if [ -z "$EXTENSIONS" ]; then
+      EXTENSIONS="ts|js|tsx"
     fi
+    
+    # Extract sourceDirectories from YAML
+    SOURCE_DIRS=$(grep -A 10 "sourceDirectories:" ".doch/config.yml" | grep "^  - " | sed 's/^  - "//g' | sed 's/"$//g' | sed 's|/$||g')
+    if [ -z "$SOURCE_DIRS" ]; then
+      SOURCE_DIRS="src lib app"
+    fi
+  else
+    EXTENSIONS="ts|js|tsx"
+    SOURCE_DIRS="src lib app"
+  fi
+}
+
+# Function to get docs directory from VS Code settings
+get_docs_directory() {
+  DOCS_DIR="docs/"
+  if [ -f ".vscode/settings.json" ]; then
+    # Try to extract docs directory from VS Code settings
+    SETTING_DOCS=$(grep -o '"doc-helper-0711.docsDirectory"[[:space:]]*:[[:space:]]*"[^"]*"' ".vscode/settings.json" | sed 's/.*"\\([^"]*\\)"$/\\1/' | head -1)
+    if [ -n "$SETTING_DOCS" ]; then
+      DOCS_DIR="$SETTING_DOCS"
+    fi
+  fi
+}
+
+# Function to load ignore patterns
+load_ignore_patterns() {
+  IGNORE_PATTERNS=""
+  if [ -f ".dochignore" ]; then
+    IGNORE_PATTERNS=$(grep -v "^#" ".dochignore" | grep -v "^$")
+  fi
+}
+
+# Function to check if file should be ignored
+should_ignore() {
+  local file="$1"
+  if [ -n "$IGNORE_PATTERNS" ]; then
+    while IFS= read -r pattern; do
+      if [ -n "$pattern" ] && echo "$file" | grep -q "$pattern"; then
+        return 0
+      fi
+    done <<< "$IGNORE_PATTERNS"
+  fi
+  return 1
+}
+
+# Function to get file status from state
+get_file_status() {
+  local src_rel="$1"
+  local state_file=".doch/metadata/doc-state.json"
+  
+  if [ ! -f "$state_file" ]; then
+    echo "nodocs"
+    return
+  fi
+  
+  if command -v node >/dev/null 2>&1; then
+    status=$(node -e "
+      const fs = require('fs');
+      try {
+        const state = JSON.parse(fs.readFileSync('$state_file', 'utf8'));
+        const entry = state['$src_rel'];
+        if (!entry) {
+          console.log('nodocs');
+        } else {
+          console.log(entry.status || 'unknown');
+        }
+      } catch (e) {
+        console.log('nodocs');
+      }
+    " 2>/dev/null)
+    echo "$status"
+  else
+    echo "unknown"
+  fi
+}
+
+# Function to check documentation status
+check_documentation() {
+  validate_doch_repo
+  read_config
+  get_docs_directory
+  load_ignore_patterns
+  
+  # Find all source files and check their status
+  for src_dir in $SOURCE_DIRS; do
+    if [ -d "$src_dir" ]; then
+      # Use a for loop with glob to avoid subshell issues
+      find "$src_dir" -type f -name "*.ts" -o -name "*.js" -o -name "*.tsx" | while IFS= read -r src_file; do
+        if [ -z "$src_file" ]; then continue; fi
+
+        if should_ignore "$src_file"; then
+          continue
+        fi
+        
+        status=$(get_file_status "$src_file")
+        
+        case "$status" in
+          "nodocs")
+            echo "❌ Missing documentation: $src_file"
+            exit 1  # Exit immediately when issue found
+            ;;
+          "outdated")
+            echo "⚠️  Outdated documentation: $src_file"
+            exit 1  # Exit immediately when issue found
+            ;;
+          "uptodate")
+            # OK, continue checking other files
+            ;;
+          *)
+            # Unknown status, treat as issue
+            echo "❓ Unknown status for: $src_file (status: $status)"
+            exit 1  # Exit immediately when issue found
+            ;;
+        esac
+      done
+      
+      # Check if the subshell exited with error
+      if [ $? -ne 0 ]; then
+        return 1
+      fi
+    fi
+  done
+  
+  echo "✅ All files have up-to-date documentation"
+  return 0
+}
+
+# Check documentation status and warn user
+if ! check_documentation; then
+  echo ""
+  echo "🚧 Warning: Documentation issues detected before merge."
+  read -p "Continue merge anyway? [y/N] " yn < /dev/tty
+  if [ "$yn" = "y" ] || [ "$yn" = "Y" ]; then
+    echo "Proceeding with merge…"
+  else
+    echo "Merge aborted. Please review documentation for the files listed above."
+    exit 1
   fi
 fi
 
@@ -191,38 +627,143 @@ exit 0
 const HOOK_POST_MERGE = `#!/usr/bin/env sh
 echo "DocHelper: Updating documentation status after merge…"
 
-# Read file extensions from config.yml
-CONFIG_FILE=".doch/config.yml"
-if [ -f "$CONFIG_FILE" ]; then
-  # Extract fileExtensions from YAML and build regex pattern
-  EXTENSIONS=$(grep -A 10 "fileExtensions:" "$CONFIG_FILE" | grep "^  - " | sed 's/^  - "//g' | sed 's/"$//g' | tr '\n' '|' | sed 's/|$//')
-  if [ -n "$EXTENSIONS" ]; then
-    PATTERN="\\\\.(\${EXTENSIONS}|md)$"
-  else
-    # Fallback to defaults if no extensions found
-    PATTERN="\\\\.(ts|js|tsx|md)$"
+# Function to validate doch repo
+validate_doch_repo() {
+  if [ ! -d ".doch" ]; then
+    echo "DocHelper not initialized. Missing: .doch directory"
+    exit 1
   fi
-else
-  # Fallback to defaults if no config file
-  PATTERN="\\\\.(ts|js|tsx|md)$"
-fi
+  if [ ! -f ".doch/config.yml" ]; then
+    echo "DocHelper configuration missing. Expected config file at: .doch/config.yml"
+    exit 1
+  fi
+  if [ ! -d ".doch/metadata" ]; then
+    mkdir -p ".doch/metadata"
+  fi
+}
+
+# Function to read config and get extensions/directories
+read_config() {
+  if [ -f ".doch/config.yml" ]; then
+    # Extract fileExtensions from YAML
+    EXTENSIONS=$(grep -A 10 "fileExtensions:" ".doch/config.yml" | grep "^  - " | sed 's/^  - "//g' | sed 's/"$//g' | tr '\\n' '|' | sed 's/|$//')
+    if [ -z "$EXTENSIONS" ]; then
+      EXTENSIONS="ts|js|tsx"
+    fi
+    
+    # Extract sourceDirectories from YAML
+    SOURCE_DIRS=$(grep -A 10 "sourceDirectories:" ".doch/config.yml" | grep "^  - " | sed 's/^  - "//g' | sed 's/"$//g' | sed 's|/$||g')
+    if [ -z "$SOURCE_DIRS" ]; then
+      SOURCE_DIRS="src lib app"
+    fi
+  else
+    EXTENSIONS="ts|js|tsx"
+    SOURCE_DIRS="src lib app"
+  fi
+}
+
+# Function to get docs directory from VS Code settings
+get_docs_directory() {
+  DOCS_DIR="docs/"
+  if [ -f ".vscode/settings.json" ]; then
+    # Try to extract docs directory from VS Code settings
+    SETTING_DOCS=$(grep -o '"doc-helper-0711.docsDirectory"[[:space:]]*:[[:space:]]*"[^"]*"' ".vscode/settings.json" | sed 's/.*"\\([^"]*\\)"$/\\1/' | head -1)
+    if [ -n "$SETTING_DOCS" ]; then
+      DOCS_DIR="$SETTING_DOCS"
+    fi
+  fi
+}
+
+# Function to load ignore patterns
+load_ignore_patterns() {
+  IGNORE_PATTERNS=""
+  if [ -f ".dochignore" ]; then
+    IGNORE_PATTERNS=$(grep -v "^#" ".dochignore" | grep -v "^$")
+  fi
+}
+
+# Function to check if file should be ignored
+should_ignore() {
+  local file="$1"
+  if [ -n "$IGNORE_PATTERNS" ]; then
+    echo "$IGNORE_PATTERNS" | while read -r pattern; do
+      if [ -n "$pattern" ] && echo "$file" | grep -q "$pattern"; then
+        return 0
+      fi
+    done
+  fi
+  return 1
+}
+
+# Function to update doc state (simplified for post-merge)
+update_doc_state() {
+  local src_rel="$1"
+  local state_file=".doch/metadata/doc-state.json"
+  
+  if [ ! -f "$state_file" ]; then
+    echo "{}" > "$state_file"
+  fi
+  
+  # Use node to update JSON if available
+  if command -v node >/dev/null 2>&1; then
+    local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
+    node -e "
+      const fs = require('fs');
+      let state = {};
+      try { state = JSON.parse(fs.readFileSync('$state_file', 'utf8')); } catch(e) {}
+      if (!state['$src_rel']) {
+        state['$src_rel'] = { documented: false, timestamp: '$timestamp', status: 'nodocs' };
+      } else {
+        state['$src_rel'].timestamp = '$timestamp';
+        if (state['$src_rel'].status === 'uptodate') {
+          state['$src_rel'].status = 'outdated';
+        }
+      }
+      fs.writeFileSync('$state_file', JSON.stringify(state, null, 2));
+    "
+  fi
+}
+
+# Main logic
+validate_doch_repo
+read_config
+get_docs_directory
+load_ignore_patterns
+
+PATTERN="\\.($EXTENSIONS|md)$"
 
 # Check if ORIG_HEAD exists (indicates a merge just happened)
 if git rev-parse --verify ORIG_HEAD >/dev/null 2>&1; then
   # Get files that were changed in the merge
-  CHANGED_SRC=$(git diff-tree --no-commit-id --name-only -r ORIG_HEAD HEAD | grep -E "\${PATTERN}")
+  CHANGED_FILES=$(git diff-tree --no-commit-id --name-only -r ORIG_HEAD HEAD | grep -E "$PATTERN")
 else
   # Fallback: compare with previous commit
   if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
-    CHANGED_SRC=$(git diff-tree --no-commit-id --name-only -r HEAD~1 HEAD | grep -E "\${PATTERN}")
+    CHANGED_FILES=$(git diff-tree --no-commit-id --name-only -r HEAD~1 HEAD | grep -E "$PATTERN")
   else
     # First commit - get all files
-    CHANGED_SRC=$(git diff-tree --no-commit-id --name-only -r --root HEAD | grep -E "\${PATTERN}")
+    CHANGED_FILES=$(git diff-tree --no-commit-id --name-only -r --root HEAD | grep -E "$PATTERN")
   fi
 fi
 
-if [ -n "$CHANGED_SRC" ]; then
-  echo "$CHANGED_SRC" | xargs npx doch drift
+if [ -n "$CHANGED_FILES" ]; then
+  echo "Processing merged files..."
+  echo "$CHANGED_FILES" | while read -r file; do
+    if [ -z "$file" ]; then continue; fi
+    
+    if should_ignore "$file"; then
+      continue
+    fi
+    
+    # Check if this is a source file in one of our directories
+    for src_dir in $SOURCE_DIRS; do
+      if echo "$file" | grep -q "^$src_dir/" && echo "$file" | grep -qE "\\.($EXTENSIONS)$"; then
+        update_doc_state "$file"
+        echo "Updated status for: $file"
+        break
+      fi
+    done
+  done
 fi
 `;
 

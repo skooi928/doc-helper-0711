@@ -6,7 +6,7 @@ This is a Visual Studio Code extension prototype to solve the CodeNection Hackat
 
 You may refer to our Phase 1 implementation [here](PROJECTDOC_PHASE1.md). Having the opportunity to advance into Phase 2, we have made numerous enhancements, from minor refinements to major additions, to make our extension better.
 
-### Major Additions
+### **Major Additions**
 
 #### 1. Inline Ghost Suggestion
 Our inline ghost suggestion works just like GitHub Copilot, but works on markdown documentation file instead.
@@ -69,7 +69,17 @@ Detect documentation issues need network access to call AI model. Currently, we 
 
 > Snippet or template is provided for faster writing. We currently have userdoc, techdoc and function as template for user documentation, technical documentation, and function template respectively. More could be added in the future by just easily editing the snippets.json.
 
-#### 5. Increases Flexibility with `config.yml` file
+#### 5. Generate General Documentations
+
+We also added generate general documentations such as README.md, ARCHITECTURE.md, ROADMAP.md, CONFIGURATION.md and API.md.
+
+<p align="center">
+<img width="1919" height="766" alt="Image" src="https://github.com/user-attachments/assets/4fc8e307-8b8e-426a-8eb8-0502cb38502b" />
+</p>
+
+> Pressing onto the documentation button beside the search icon, users can select what documentation type to generate. <br><br>**Note:** Since we are only using free models and there are limited token, the result might be inaccurate. The result will also be slow due to the free server deployment using Render.
+
+#### 6. Increases Flexibility with `config.yml` file
 
 <p align="center">
 <img width="1045" height="493" alt="Image" src="https://github.com/user-attachments/assets/0d49e7e2-49f8-4c89-b458-65387896aeb6" />
@@ -77,7 +87,7 @@ Detect documentation issues need network access to call AI model. Currently, we 
 
 > Config file now can identify which source code directories and language to track. Users can edit based on the project language that they are working with.
 
-#### 6. Detect Documentation Issues With Suggested Fixes/Regenerate Docs
+#### 7. Detect Documentation Issues With Suggested Fixes/Regenerate Docs
 
 <p align="center">
 <img width="826" height="1019" alt="Image" src="https://github.com/user-attachments/assets/6a73a083-125c-4db9-930b-4cfe104e677c" />
@@ -91,7 +101,7 @@ If we choose to regenerate the documentation, latest AI generated documentation 
 <img width="1919" height="1021" alt="Image" src="https://github.com/user-attachments/assets/001d4701-e069-42fe-b1a8-340d5c17ce57" />
 </p>
 
-#### 7. To-do List Tracker
+#### 8. To-do List Tracker
 
 Who knows sometimes tasks are just too many that we tends to forget about what should we do next. This is exactly how we miss out our stale documentation. By using a to-do list tracker, we can track which documentation we should do, adding new task with a title, description(optional), priority, associated file(optional), and deadline(optional).
 
@@ -101,7 +111,7 @@ Who knows sometimes tasks are just too many that we tends to forget about what s
 
 > The tasks will then show above the chatbot panel. Once completed, click on the task and it will become completed with a tick icon. Users can also edit tasks, sort tasks and delete task if the task record is completed and not needed anymore.
 
-### Minor Refinements
+### **Minor Refinements**
 
 #### 1. Git Hook Configuration
 
@@ -113,6 +123,8 @@ Now users can have the Git Hooks are configured automatically when they initiali
 - Push stale documentation to main = Block
 - Before merge, warn users if current documentation status is stale.
 - After merge, git hook updates documentation status using same logic as post-commit
+
+**P.S.** We removed the CLI as it requires user to have NodeJS environment which is not user friendly. We added the logic straight inside the Git Hook.
 
 #### 2. User Friendly Chatbot
 

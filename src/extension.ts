@@ -1,18 +1,15 @@
 import * as vscode from 'vscode';
-import { installCLIIfNeeded, initDochRepo, updateDochContext, watchDocState, getWorkspaceConfig, createConfigWatcher } from './utils/doch';
+import { initDochRepo, updateDochContext, watchDocState, getWorkspaceConfig, createConfigWatcher } from './utils/doch';
 import { ChatbotViewProvider } from './providers/chatbotViewProvider'; 
 import { FileStatusItem, FileStatusProvider } from './providers/fileStatusProvider';
 import { registerFileLinkingProviders } from './providers/fileLinkingProvider';
 import { TaskTreeProvider, TaskManager, SortMode } from './providers/taskTreeProvider';
 import { registerMissingDocCodeActions } from './providers/missingDocCodeActionProvider';
 import { registerWrongNumberingCodeActions } from './providers/wrongNumberingCodeActionProvider';
-import { generateDocumentation, summarizeDocumentation, checkDocumentation, registerInlineSuggestionProvider } from './utils/simplifyWriting';
+import { generateDocumentation, summarizeDocumentation, checkDocumentation, registerInlineSuggestionProvider, documentTypes, generateGeneralDocumentations } from './utils/simplifyWriting';
 import { addTask, editTask, toggleSort } from './utils/todoTracker';
 
 export async function activate(context: vscode.ExtensionContext) {
-  // Ensure the CLI is installed
-  await installCLIIfNeeded(context.extensionPath);
-
   // Update on start
   updateDochContext();
 
@@ -158,6 +155,18 @@ export async function activate(context: vscode.ExtensionContext) {
       if (selection?.item.fileUri) {
         await vscode.window.showTextDocument(selection.item.fileUri);
       }
+    }),
+    vscode.commands.registerCommand('doc-helper-0711.generateGeneralDocs', async () => {
+      const selection = await vscode.window.showQuickPick(documentTypes, {
+        placeHolder: 'Select a documentation type to generate',
+        matchOnDescription: true
+      });
+
+      if (!selection) {
+        return;
+      }
+
+      await generateGeneralDocumentations(selection);
     }),
     vscode.commands.registerCommand('doc-helper-0711.ignoreFile', async (item: FileStatusItem) => {
       if (!item.fileUri) {
