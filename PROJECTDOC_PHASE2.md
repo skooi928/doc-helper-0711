@@ -121,10 +121,7 @@ Now users can have the Git Hooks are configured automatically when they initiali
 - Documentation commit time >= Source file commit time = Up to date
 - Push stale documentation to other branches = Warning
 - Push stale documentation to main = Block
-- Before merge, warn users if current documentation status is stale.
 - After merge, git hook updates documentation status using same logic as post-commit
-
-**P.S.** We removed the CLI as it requires user to have NodeJS environment which is not user friendly. We added the logic straight inside the Git Hook.
 
 #### 2. User Friendly Chatbot
 
