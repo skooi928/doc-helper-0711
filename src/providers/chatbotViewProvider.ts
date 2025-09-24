@@ -81,11 +81,11 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 
     private _getHtmlForWebview(webview: vscode.Webview) {
         // Get the local path to main script run in the webview, then convert it to a uri we can use in the webview.
-        const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'chatbot.js'));
+        const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'src', 'webview' , 'chatbot.js'));
 
         // Do the same for the stylesheet.
-        const styleMainUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'chatbot.css'));
-        const styleVscodeUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'vscode.css'));
+        const styleMainUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'src', 'webview' , 'chatbot.css'));
+        const styleVscodeUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'src', 'webview' , 'vscode.css'));
 
         // Use a nonce to only allow a specific script to be run.
         const nonce = getNonce();
@@ -99,15 +99,12 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 					Use a content security policy to only allow loading images from https or from our extension directory,
 					and only allow scripts that have a specific nonce.
 				-->
-				<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
+				<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} https:; font-src ${webview.cspSource};">
 
 				<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 				<link href="${styleMainUri}" rel="stylesheet">
                 <link href="${styleVscodeUri}" rel="stylesheet">
-
-                <script nonce="${nonce}" src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-                <script nonce="${nonce}" src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
 
 				<title>Doc Helper AI</title>
 			</head>
