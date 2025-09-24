@@ -68,17 +68,32 @@ else
   PATTERN="\\\\.(ts|js|tsx|md)$"
 fi
 
-# Check if this is the first commit (no parent)
-if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
-  # Not the first commit - compare with previous commit
-  CHANGED_SRC=$(git diff-tree --no-commit-id --name-only -r HEAD | grep -E "\${PATTERN}")
+# Determine what files changed
+CHANGED_SRC=""
+
+# Check if this commit is completing a merge (merge commit has multiple parents)
+if git show --pretty=format:"%P" -s HEAD | grep -q " "; then
+  # This is a merge commit - get the first parent (the branch we merged into)
+  FIRST_PARENT=$(git show --pretty=format:"%P" -s HEAD | cut -d' ' -f1)
+  if [ -n "$FIRST_PARENT" ]; then
+    CHANGED_SRC=$(git diff-tree --no-commit-id --name-only -r "$FIRST_PARENT" HEAD | grep -E "\${PATTERN}")
+  fi
 else
-  # First commit - get all files in this commit
-  CHANGED_SRC=$(git diff-tree --no-commit-id --name-only -r --root HEAD | grep -E "\${PATTERN}")
+  # Regular commit logic
+  if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+    # Not the first commit - compare with previous commit
+    CHANGED_SRC=$(git diff-tree --no-commit-id --name-only -r HEAD | grep -E "\${PATTERN}")
+  else
+    # First commit - get all files in this commit
+    CHANGED_SRC=$(git diff-tree --no-commit-id --name-only -r --root HEAD | grep -E "\${PATTERN}")
+  fi
 fi
 
 if [ -n "$CHANGED_SRC" ]; then
   echo "$CHANGED_SRC" | xargs npx doch drift
+  echo "DocHelper: Updated documentation status"
+else
+  echo "DocHelper: No relevant files changed"
 fi 
 `;
 
