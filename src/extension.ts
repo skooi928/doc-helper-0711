@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { initDochRepo, updateDochContext, watchDocState, getWorkspaceConfig, createConfigWatcher } from './utils/doch';
+import { installCLIIfNeeded, initDochRepo, updateDochContext, watchDocState, getWorkspaceConfig, createConfigWatcher } from './utils/doch';
 import { ChatbotViewProvider } from './providers/chatbotViewProvider'; 
 import { FileStatusItem, FileStatusProvider } from './providers/fileStatusProvider';
 import { registerFileLinkingProviders } from './providers/fileLinkingProvider';
@@ -10,6 +10,9 @@ import { generateDocumentation, summarizeDocumentation, checkDocumentation, regi
 import { addTask, editTask, toggleSort } from './utils/todoTracker';
 
 export async function activate(context: vscode.ExtensionContext) {
+  // Ensure the CLI is installed
+  await installCLIIfNeeded(context.extensionPath);
+
   // Update on start
   updateDochContext();
 
