@@ -6,7 +6,7 @@ import { execSync } from 'child_process';
 export async function installCLIIfNeeded(extensionPath: string): Promise<void> {
   try {
     // Check if CLI is already installed
-    execSync('doch --version', { stdio: 'ignore' });
+    execSync('doch --help', { stdio: 'ignore' });
   } catch (error) {
     try {
       // CLI not found, install it

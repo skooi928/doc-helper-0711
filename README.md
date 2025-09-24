@@ -7,7 +7,7 @@ This is a Visual Studio Code extension prototype to solve the CodeNection Hackat
 Before using our extension, you will need to download and install Node.js from [here](https://nodejs.org/en/download/).
 
 After installing our extension from the Visual Studio Code Extension Marketplace, you will first need to setup your API key from Google Gemini and HuggingFace Token.
-![Settings of Doc Helper](README_images/Settings.png)
+![Settings of Doc Helper](resources/readme/settings.png)
 
 > Key in your Google Gemini API key (Get it from [here](https://aistudio.google.com/app/apikey)) <br> Key in your Hugging Face Access Token (Get it from [here](https://huggingface.co/settings/tokens))
 
