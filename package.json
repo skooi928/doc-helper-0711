@@ -2,7 +2,7 @@
   "name": "doc-helper-0711",
   "displayName": "Doc Helper",
   "publisher": "NeZhaPlayinginHeaven",
-  "description": "AI assistant to documentation.",
+  "description": "CodeNection Track 3 - AI assistant to documentation.",
   "version": "0.0.1",
   "author": {
     "name": "NeZha"
@@ -20,7 +20,9 @@
     "vscode": "^1.103.0"
   },
   "categories": [
-    "AI", "Snippets", "Other"
+    "AI",
+    "Snippets",
+    "Other"
   ],
   "activationEvents": [
     "onLanguage"
@@ -96,7 +98,7 @@
         "command": "doc-helper-0711.initDochRepo",
         "title": "Doc Helper: Initialize DocHelper Repository"
       },
-      {  
+      {
         "command": "doc-helper-0711.statusBarMenu",
         "title": "Doc Helper: Status Bar Menu"
       },

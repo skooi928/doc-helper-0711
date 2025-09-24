@@ -1,5 +1,29 @@
 import * as vscode from 'vscode';
 import * as yaml from 'js-yaml';
+import { execSync } from 'child_process';
+
+// Ensure the CLI is installed globally
+export async function installCLIIfNeeded(extensionPath: string): Promise<void> {
+  try {
+    // Check if CLI is already installed
+    execSync('doch --version', { stdio: 'ignore' });
+  } catch (error) {
+    try {
+      // CLI not found, install it
+      console.log('Installing Doc Helper CLI globally...');
+      execSync(`npm link "${extensionPath}"`, { stdio: 'pipe' });
+      
+      vscode.window.showInformationMessage(
+        'Doc Helper CLI installed globally. You can now use "doch" command in terminal.'
+      );
+    } catch (installError) {
+      console.error('Failed to install CLI globally:', installError);
+      vscode.window.showWarningMessage(
+        `Doc Helper CLI could not be installed globally. You may need to run "npm link ${extensionPath}" manually or check your permissions.`
+      );
+    }
+  }
+}
 
 const TEMPLATE_CONFIG = `\
 # .doch/config.yml

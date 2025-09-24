@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { initDochRepo, updateDochContext, watchDocState, getWorkspaceConfig, createConfigWatcher } from './utils/doch';
+import { installCLIIfNeeded, initDochRepo, updateDochContext, watchDocState, getWorkspaceConfig, createConfigWatcher } from './utils/doch';
 import { ChatbotViewProvider } from './providers/chatbotViewProvider'; 
 import { FileStatusItem, FileStatusProvider } from './providers/fileStatusProvider';
 import { registerFileLinkingProviders } from './providers/fileLinkingProvider';
@@ -10,6 +10,9 @@ import { generateDocumentation, summarizeDocumentation, checkDocumentation, regi
 import { addTask, editTask, toggleSort } from './utils/todoTracker';
 
 export async function activate(context: vscode.ExtensionContext) {
+  // Ensure the CLI is installed
+  await installCLIIfNeeded(context.extensionPath);
+
   // Update on start
   updateDochContext();
 
@@ -513,16 +516,32 @@ export async function activate(context: vscode.ExtensionContext) {
       return;
     }
 
+    // Check if doch is initialized
+    const folders = vscode.workspace.workspaceFolders;
+    if (!folders?.length) {
+      statusBarItem.hide();
+      return;
+    }
+    
+    const folder = folders[0];
+    const dochFolder = vscode.Uri.joinPath(folder.uri, '.doch');
+    
+    try {
+      await vscode.workspace.fs.stat(dochFolder);
+    } catch {
+      // .doch folder doesn't exist, hide status bar
+      statusBarItem.hide();
+      return;
+    }
+
     const docsDirectory = config.get<string>('saveDirectory') || 'docs/';
 
     const uri = editor.document.uri;
     const rel = vscode.workspace.asRelativePath(uri, false);
-    const folders = vscode.workspace.workspaceFolders;
     if (!folders?.length) { // Check for file but not inside the same workspace
       statusBarItem.hide();
       return;
     }
-    const folder = folders[0];
     const { extensions, regex, sourceDirectories } = await getWorkspaceConfig(folder);
     const state = await loadState();
     let text: string | undefined;
