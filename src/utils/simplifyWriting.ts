@@ -4,6 +4,7 @@ import { getWorkspaceConfig } from '../utils/doch';
 import { AIService } from '../ai/temporaryAI';
 import { DocumentationInlineSuggestionProvider } from '../providers/documentInlineSuggestionProvider';
 import { askDocumentationQuestion } from '../service/apiCall';
+import { privateEncrypt } from 'crypto';
 
 const aiService = new AIService();
 
@@ -341,6 +342,38 @@ export async function generateGeneralDocumentations(selectedType: DocumentationT
   }, async (progress) => {
     try {
       progress.report({ message: 'Analyzing project structure...' });
+
+      // Load .dochignore patterns
+      const loadIgnorePatterns = async (): Promise<string[]> => {
+        try {
+          const ignorePath = vscode.Uri.joinPath(workspaceRoot, '.dochignore');
+          const ignoreContent = await vscode.workspace.fs.readFile(ignorePath);
+          const content = Buffer.from(ignoreContent).toString('utf8');
+          return content
+            .split(/\r?\n/)
+            .map(line => line.trim())
+            .filter(line => line && !line.startsWith('#'));
+        } catch {
+          return [];
+        }
+      };
+
+      const ignorePatterns = await loadIgnorePatterns();
+      
+      // Function to check if file should be ignored
+      const shouldIgnoreFile = (relativePath: string): boolean => {
+        return ignorePatterns.some(pattern => {
+          // Convert glob pattern to regex for matching
+          const regex = new RegExp(
+            pattern
+              .replace(/\*\*/g, '.*')
+              .replace(/\*/g, '[^/]*')
+              .replace(/\?/g, '[^/]')
+              .replace(/\./g, '\\.')
+          );
+          return regex.test(relativePath);
+        });
+      };
       
       // Collect project files for AI context
       const projectFiles: { name: string; content: string }[] = [];
@@ -369,14 +402,18 @@ export async function generateGeneralDocumentations(selectedType: DocumentationT
         // README.md doesn't exist
       }
 
+      const { extensions } = await getWorkspaceConfig(folders[0]);
       // Get main source files
-      const pattern = new vscode.RelativePattern(workspaceRoot, '**/*.{ts,js,py,java,cs,cpp,c,h,hpp,json,yml,yaml}');
+      const pattern = new vscode.RelativePattern(workspaceRoot, `**/*.{${extensions.join(',')},json,yml,yaml}`);
       const excludePattern = '{**/node_modules/**,**/dist/**,**/build/**,**/out/**,**/.next/**,**/coverage/**,**/.git/**,**/.vscode/**,**/vendor/**,**/target/**,**/bin/**,**/obj/**}';
       const sourceFiles = await vscode.workspace.findFiles(pattern, excludePattern, 10);
 
       // Filter and prioritize user source files
       const userSourceFiles = sourceFiles.filter(file => {
         const relativePath = vscode.workspace.asRelativePath(file);
+        if (shouldIgnoreFile(relativePath)) {
+          return false;
+        }
         // Additional filtering for common generated/dependency patterns
         return !relativePath.includes('node_modules') &&
                !relativePath.includes('dist/') &&

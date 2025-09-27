@@ -364,21 +364,21 @@ export function registerWrongNumberingCodeActions(context: vscode.ExtensionConte
     { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }
   );
 
-  const clearIgnoredOnChange = vscode.workspace.onDidSaveTextDocument(doc => {
-    if (doc.languageId !== 'markdown') {
-      return;
-    }
-    // load the full map
-    const all = context.workspaceState.get<Record<string, number[]>>('ignoredNumberingProblems', {});
-    // remove this URI’s key
-    delete all[doc.uri.toString()];
-    // write it back
-    context.workspaceState.update('ignoredNumberingProblems', all);
-  });
+  // const clearIgnoredOnChange = vscode.workspace.onDidSaveTextDocument(doc => {
+  //   if (doc.languageId !== 'markdown') {
+  //     return;
+  //   }
+  //   // load the full map
+  //   const all = context.workspaceState.get<Record<string, number[]>>('ignoredNumberingProblems', {});
+  //   // remove this URI’s key
+  //   delete all[doc.uri.toString()];
+  //   // write it back
+  //   context.workspaceState.update('ignoredNumberingProblems', all);
+  // });
   
   context.subscriptions.push(
-    disposable,
-    clearIgnoredOnChange,
+    disposable
+    // clearIgnoredOnChange,
   );
   
   return disposable;
@@ -515,6 +515,17 @@ vscode.commands.registerCommand(
   'doc-helper-0711.ignoreNumberingProblem',
   async (docUri: vscode.Uri, diagnostic: vscode.Diagnostic) => {
     const doc = await vscode.workspace.openTextDocument(docUri);
+      // Pop up a confirmation message with Yes/No options
+      const result = await vscode.window.showWarningMessage(
+        "Are you sure you want to ignore numbering problem for this file? This action could not be undo.",
+        {modal: true},
+        "Yes",
+        "No"
+      );
+      if (result !== "Yes") {
+        return;
+      }
+
     // parse the number from the diagnostic message
     const match = diagnostic.message.match(/(?:Missing|Duplicate) number (\d+) in heading sequence \(level (\d+)\)/);
     if (!match) {

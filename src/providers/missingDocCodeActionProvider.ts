@@ -511,7 +511,7 @@ vscode.commands.registerCommand("doc-helper-0711.ignoreMissingDocs",
   async (docUri: vscode.Uri, diagnostics: vscode.Diagnostic[]) => {
     // Pop up a confirmation message with Yes/No options
     const result = await vscode.window.showWarningMessage(
-      "Are you sure you want to ignore missing documentation warnings for this file?",
+      "Are you sure you want to ignore missing documentation warnings for this file? This action cannot be undo.",
       {modal: true},
       "Yes",
       "No"
