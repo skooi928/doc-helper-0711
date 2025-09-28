@@ -28,3 +28,9 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 - Fix ignore numbering will refresh on changed window
 - Fix general documentation generation cannot based on config.yml and ignore .dochignore files
+
+## [0.0.3] - 2025.09.28
+
+### Fixed
+
+- Fix chatbot message cannot be sent out

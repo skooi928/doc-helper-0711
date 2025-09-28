@@ -106,6 +106,9 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 				<link href="${styleMainUri}" rel="stylesheet">
                 <link href="${styleVscodeUri}" rel="stylesheet">
 
+                <script nonce="${nonce}" src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+                <script nonce="${nonce}" src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
+
 				<title>Doc Helper AI</title>
 			</head>
 			<body>
