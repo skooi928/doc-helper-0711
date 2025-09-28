@@ -22,9 +22,3 @@ You may refer to our documentation at [Phase 1](PROJECTDOC_PHASE1.md) then [Phas
 - Since we are using free Render to deploy our backend REST API, the backend server will sleep due to inactivity and requires a long time to boot up.
 
 > To report any other issues, open command palette `[Ctrl+Shift+P]`, and type "Doc Helper: Report Issue", you will be guided to the GitHub report issue in Doc Helper repository.
-
-## Release Notes
-
-### 1.0.0
-
-Initial release of Doc Helper
