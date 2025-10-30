@@ -13,6 +13,7 @@ public class EmbeddingModelFactory {
     }
     
     return HuggingFaceEmbeddingModel.builder()
+        .baseUrl("https://router.huggingface.co/hf-inference/")
         .accessToken(huggingFaceToken)
         .modelId("intfloat/multilingual-e5-base")
         .build();
