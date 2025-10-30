@@ -34,3 +34,11 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 ### Fixed
 
 - Fix chatbot message cannot be sent out
+
+## [0.0.4] - 2025.10.30
+
+### Fixed
+
+- Fix wrong save directory read by doch cli
+- Fix documentation status git hook logic (git commit source code before initializing doch)
+- Fix depreciated API endpoint of huggingface
