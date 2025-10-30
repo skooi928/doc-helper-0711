@@ -7,6 +7,7 @@ export async function installCLIIfNeeded(extensionPath: string): Promise<void> {
   try {
     // Check if CLI is already installed
     execSync('doch --help', { stdio: 'ignore' });
+    execSync(`npm link "${extensionPath}"`, { stdio: 'pipe' });
   } catch (error) {
     try {
       // CLI not found, install it
