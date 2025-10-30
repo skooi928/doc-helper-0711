@@ -42,3 +42,9 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - Fix wrong save directory read by doch cli
 - Fix documentation status git hook logic (git commit source code before initializing doch)
 - Fix depreciated API endpoint of huggingface
+
+## [0.0.5] - 2025.10.30
+
+### Fixed
+
+- Fix minor bug where timestamp might be undefined
