@@ -117,7 +117,7 @@ async function getDocsDirectoryFromVSCode(root: string): Promise<string> {
         const cleanContent = content.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '');
         const settings = JSON.parse(cleanContent);
         
-        const docsDir = settings['doc-helper-0711.docsDirectory'];
+        const docsDir = settings['docHelper.saveDirectory'];
         if (docsDir) {
           return docsDir;
         }
@@ -263,7 +263,7 @@ export async function driftNode(files: string[], root: string) {
       } else if (files.includes(docRel)) {
         // Only doc changed
         docTime = new Date().toISOString();
-        srcTime = state[srcRel].timestamp;
+        srcTime = state[srcRel].timestamp || srcStat.mtime.toISOString();
       } else {
         // Only source changed
         srcTime = new Date().toISOString();
