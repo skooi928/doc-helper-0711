@@ -48,3 +48,9 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 ### Fixed
 
 - Fix minor bug where timestamp might be undefined
+
+## [0.0.6] - 2025.10.30
+
+### Fixed
+
+- Fix bug where CLI cannot automatically update when extension version update
