@@ -263,7 +263,7 @@ export async function driftNode(files: string[], root: string) {
       } else if (files.includes(docRel)) {
         // Only doc changed
         docTime = new Date().toISOString();
-        srcTime = state[srcRel].timestamp || srcStat.mtime.toISOString();
+        srcTime = state[srcRel]?.timestamp || srcStat.mtime.toISOString();
       } else {
         // Only source changed
         srcTime = new Date().toISOString();
@@ -303,6 +303,7 @@ export async function driftNode(files: string[], root: string) {
         }
       }
     } catch (error) {
+      console.error(`Error processing ${srcRel}: ${error}`);
         state[srcRel] = { 
         documented: false, 
         timestamp: new Date().toISOString(),
